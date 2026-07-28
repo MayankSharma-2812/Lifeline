@@ -2,17 +2,18 @@ const { Router }                 = require('express');
 const { body, validationResult } = require('express-validator');
 const { authenticate }           = require('../middleware/auth');
 const EmergencyRequest           = require('../models/EmergencyRequest');
-const DonorProfile               = require('../models/DonorProfile');
 const { parseEmergencyText, explainMatch } = require('../services/aiService');
 const { runMatchingForRequest }  = require('../services/matchingService');
+const {
+  reserveDonor,
+  confirmReservation,
+  declineAndEscalate,
+}                                = require('../services/reservationService');
 
 const router = Router();
-
-// All request routes require authentication
 router.use(authenticate);
 
 // ── POST /api/v1/requests ────────────────────────────────────────
-// Submit a free-text emergency → AI parse → run matching → return candidates
 router.post(
   '/',
   [
@@ -26,26 +27,18 @@ router.post(
 
     try {
       const { rawText, location } = req.body;
-
-      // 1. Parse text (AI → deterministic fallback)
       const parsed = await parseEmergencyText(rawText);
 
-      // 2. Create the request document
       const emergencyRequest = await EmergencyRequest.create({
         requesterId: req.userId,
         rawText,
         parsed,
-        location: {
-          type:        'Point',
-          coordinates: [location.lng, location.lat],
-        },
+        location: { type: 'Point', coordinates: [location.lng, location.lat] },
         status: 'pending',
       });
 
-      // 3. Run matching — updates request to 'matched' and stores candidateIds
       const { candidates } = await runMatchingForRequest(emergencyRequest._id);
 
-      // 4. Attach AI explanations to each candidate
       const withExplanations = await Promise.all(
         candidates.map(async (c) => ({
           ...c,
@@ -65,12 +58,11 @@ router.post(
 );
 
 // ── GET /api/v1/requests/:id/matches ────────────────────────────
-// Return the stored matches for a request (re-run matching to get fresh data)
 router.get('/:id/matches', async (req, res, next) => {
   try {
     const { candidates, request } = await runMatchingForRequest(req.params.id);
-
     const parsed = request.parsed;
+
     const withExplanations = await Promise.all(
       candidates.map(async (c) => ({
         ...c,
@@ -80,7 +72,7 @@ router.get('/:id/matches', async (req, res, next) => {
 
     res.json({
       requestId: request._id,
-      status:    request.status,
+      status: request.status,
       parsed,
       candidates: withExplanations,
     });
@@ -90,15 +82,76 @@ router.get('/:id/matches', async (req, res, next) => {
 });
 
 // ── POST /api/v1/requests/:id/reserve ───────────────────────────
-// Implemented in Phase 3 (Redis lock acquisition)
-router.post('/:id/reserve',  (_req, res) => res.status(501).json({ error: 'Phase 3' }));
+// Requester reserves a specific donor — acquires the Redis NX lock.
+router.post(
+  '/:id/reserve',
+  [body('donorProfileId').notEmpty().withMessage('donorProfileId required')],
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    try {
+      const result = await reserveDonor(
+        req.params.id,
+        req.body.donorProfileId,
+        req.userId
+      );
+      res.json({ message: 'Donor reserved', ...result });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // ── POST /api/v1/requests/:id/confirm ───────────────────────────
-// Implemented in Phase 3
-router.post('/:id/confirm',  (_req, res) => res.status(501).json({ error: 'Phase 3' }));
+// Donor confirms the reservation — releases lock, marks confirmed.
+router.post(
+  '/:id/confirm',
+  [body('donorProfileId').notEmpty().withMessage('donorProfileId required')],
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    try {
+      await confirmReservation(req.params.id, req.body.donorProfileId, req.userId);
+      res.json({ message: 'Reservation confirmed' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // ── POST /api/v1/requests/:id/decline ───────────────────────────
-// Implemented in Phase 3
-router.post('/:id/decline',  (_req, res) => res.status(501).json({ error: 'Phase 3' }));
+// Donor declines OR requester simulates no-response → triggers escalation.
+router.post(
+  '/:id/decline',
+  [
+    body('donorProfileId').notEmpty().withMessage('donorProfileId required'),
+    body('outcome')
+      .optional()
+      .isIn(['declined', 'no_response'])
+      .withMessage('outcome must be declined or no_response'),
+  ],
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    try {
+      const { donorProfileId, outcome = 'declined' } = req.body;
+      const result = await declineAndEscalate(
+        req.params.id,
+        donorProfileId,
+        outcome,
+        req.userId
+      );
+      res.json({
+        message:       `Escalated — outcome: ${outcome}`,
+        nextCandidate: result.nextCandidate,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 module.exports = router;

@@ -90,16 +90,24 @@ async function findCandidates(location, bloodGroup, maxDistance = MAX_RADIUS_MET
  * Run matching for a given EmergencyRequest and persist the candidate list.
  * Updates the request to status "matched" and stores matchedCandidateIds.
  * @param {string} requestId
+ * @param {string[]} [excludeDonorProfileIds]  Donor profile IDs to skip (used during escalation)
  * @returns {Promise<{ request, candidates }>}
  */
-async function runMatchingForRequest(requestId) {
+async function runMatchingForRequest(requestId, excludeDonorProfileIds = []) {
   const request = await EmergencyRequest.findById(requestId);
   if (!request) throw Object.assign(new Error('Request not found'), { status: 404 });
 
   const bloodGroup = request.parsed?.bloodGroup;
   if (!bloodGroup) throw Object.assign(new Error('Blood group not parsed from request'), { status: 422 });
 
-  const candidates = await findCandidates(request.location, bloodGroup);
+  let candidates = await findCandidates(request.location, bloodGroup);
+
+  // Filter out any donors already tried during escalation
+  if (excludeDonorProfileIds.length > 0) {
+    candidates = candidates.filter(
+      (c) => !excludeDonorProfileIds.includes(c.donorProfileId.toString())
+    );
+  }
 
   const newStatus = candidates.length > 0 ? 'matched' : 'expired';
   request.matchedCandidateIds = candidates.map((c) => c.donorProfileId);
