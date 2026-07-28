@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/v1/:path*",
-      "destination": "https://YOUR-RENDER-BACKEND-URL.onrender.com/api/v1/:path*"
+      "destination": "https://lifeline-cpv8.onrender.com/api/v1/:path*"
     },
     {
       "source": "/(.*)",
