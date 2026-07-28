@@ -68,7 +68,9 @@ router.post(
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('Valid email required'),
+    body('identifier').optional().trim(),
+    body('email').optional().trim(),
+    body().custom((b) => b.identifier || b.email).withMessage('Valid email or phone required'),
     body('password').notEmpty().withMessage('Password required'),
   ],
   async (req, res, next) => {
@@ -76,8 +78,8 @@ router.post(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
-      const { email, password } = req.body;
-      const result = await authService.login(email, password);
+      const targetIdentifier = req.body.identifier || req.body.email;
+      const result = await authService.login(targetIdentifier, req.body.password);
       setRefreshCookie(res, result.sessionId, result.refreshToken);
       res.json({ accessToken: result.accessToken, user: result.user });
     } catch (err) {

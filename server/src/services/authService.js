@@ -61,10 +61,19 @@ async function signup({ name, phone, email, password, role, location }) {
 }
 
 /**
- * Login — per LLD §5 exactly.
+ * Login — per LLD §5. Supports lookup by email or phone.
  */
-async function login(email, password) {
-  const user = await User.findOne({ email });
+async function login(identifier, password) {
+  if (!identifier) {
+    const err = new Error('Email or phone is required');
+    err.status = 400;
+    throw err;
+  }
+
+  const user = await User.findOne({
+    $or: [{ email: identifier }, { phone: identifier }],
+  });
+
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     const err = new Error('Invalid credentials');
     err.status = 401;

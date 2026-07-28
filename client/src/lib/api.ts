@@ -88,7 +88,7 @@ api.interceptors.response.use(
 // ── Auth Endpoints ───────────────────────────────────────────────
 
 export async function loginApi(identifier: string, password: string): Promise<{ user: User; accessToken: string }> {
-  const res = await api.post('/auth/login', { identifier, password });
+  const res = await api.post('/auth/login', { identifier, email: identifier, password });
   setAccessToken(res.data.accessToken);
   return res.data;
 }
