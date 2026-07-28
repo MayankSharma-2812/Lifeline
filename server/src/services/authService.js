@@ -1,7 +1,8 @@
-const crypto  = require('crypto');
-const bcrypt   = require('bcrypt');
-const jwt      = require('jsonwebtoken');
-const User     = require('../models/User');
+const crypto       = require('crypto');
+const bcrypt       = require('bcrypt');
+const jwt          = require('jsonwebtoken');
+const User         = require('../models/User');
+const DonorProfile = require('../models/DonorProfile');
 const { getRedis } = require('../config/redis');
 
 const BCRYPT_ROUNDS    = 10;
@@ -45,6 +46,16 @@ async function signup({ name, phone, email, password, role, location }) {
       location: { type: 'Point', coordinates: [location.lng, location.lat] },
     }),
   });
+
+  // Auto-create DonorProfile for donor registrations
+  if (role === 'donor') {
+    if (!bloodGroup) {
+      const err = new Error('bloodGroup is required when role is donor');
+      err.status = 400;
+      throw err;
+    }
+    await DonorProfile.create({ userId: user._id, bloodGroup });
+  }
 
   return _createSession(user);
 }

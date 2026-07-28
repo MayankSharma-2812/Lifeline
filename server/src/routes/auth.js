@@ -43,6 +43,11 @@ router.post(
     body('password').isLength({ min: 6 }).withMessage('Password min 6 chars'),
     body('phone').notEmpty().withMessage('Phone required'),
     body('role').isIn(['requester', 'donor']).withMessage('role must be requester or donor'),
+    body('bloodGroup')
+      .if(body('role').equals('donor'))
+      .notEmpty()
+      .isIn(['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'])
+      .withMessage('Valid bloodGroup required for donors'),
   ],
   async (req, res, next) => {
     const errors = validationResult(req);
