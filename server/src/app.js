@@ -7,9 +7,11 @@ const cookieParser = require('cookie-parser');
 const app = express();
 
 app.use(helmet());
+const { corsOriginHandler } = require('./utils/corsOrigin');
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: corsOriginHandler,
     credentials: true, // required for httpOnly refresh-token cookie
   })
 );

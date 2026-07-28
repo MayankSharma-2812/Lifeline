@@ -3,11 +3,12 @@ const jwt        = require('jsonwebtoken');
 
 let io;
 
-// ── Initialise ───────────────────────────────────────────────────
+const { corsOriginHandler } = require('./utils/corsOrigin');
+
 function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin:      process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: corsOriginHandler,
       credentials: true,
     },
   });
