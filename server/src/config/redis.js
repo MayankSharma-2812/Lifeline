@@ -1,29 +1,27 @@
-const Redis = require("ioredis");
+const { Redis } = require('@upstash/redis');
 
-/** Singleton client — imported everywhere that needs Redis */
+/**
+ * Upstash Redis REST client — HTTP-based, no persistent TCP connection needed.
+ * @upstash/redis auto-serialises/deserialises values as JSON, so we store
+ * plain objects and get plain objects back (no manual JSON.parse/stringify).
+ */
 let client;
 
 async function connectRedis() {
-  const url = process.env.REDIS_URL;
-  if (!url) throw new Error("REDIS_URL not set");
+  const url   = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) throw new Error('UPSTASH_REDIS_REST_URL / TOKEN not set');
 
-  client = new Redis(url, {
-    // ioredis will auto-reconnect; log connection events
-    lazyConnect: true,
-  });
+  client = new Redis({ url, token });
 
-  client.on("error", (err) => {
-    // eslint-disable-next-line no-console
-    console.error("[redis] error:", err.message);
-  });
-
-  await client.connect();
+  // Smoke-test the connection
+  await client.ping();
   // eslint-disable-next-line no-console
-  console.log("[redis] connected");
+  console.log('[redis] Upstash connected');
 }
 
 function getRedis() {
-  if (!client) throw new Error("Redis not initialised — call connectRedis() first");
+  if (!client) throw new Error('Redis not initialised — call connectRedis() first');
   return client;
 }
 
