@@ -1,8 +1,15 @@
 import axios from 'axios';
 import { BloodGroup, Candidate, DonorProfile, EmergencyRequest, Role, User } from '../types';
 
+function getApiBaseUrl(): string {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!envUrl) return '/api/v1';
+  const clean = envUrl.replace(/\/$/, '');
+  return clean.endsWith('/api/v1') ? clean : `${clean}/api/v1`;
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api/v1',
+  baseURL: getApiBaseUrl(),
   withCredentials: true, // sends httpOnly refresh cookie
 });
 
@@ -66,7 +73,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await axios.post('/api/v1/auth/refresh', {}, { withCredentials: true });
+        const res = await axios.post(`${getApiBaseUrl()}/auth/refresh`, {}, { withCredentials: true });
         const newToken = res.data.accessToken;
         setAccessToken(newToken);
         processQueue(null, newToken);
