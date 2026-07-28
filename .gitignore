@@ -3,3 +3,4 @@ node_modules/
 dist/
 coverage/
 *.log
+VIVA_AND_PROJECT_GUIDE.md
