@@ -172,7 +172,10 @@ export async function declineReservationApi(
 
 // ── Donors Endpoints ─────────────────────────────────────────────
 
-export async function getMyDonorProfileApi(): Promise<{ profile: DonorProfile }> {
+export async function getMyDonorProfileApi(): Promise<{
+  profile: DonorProfile;
+  activeReservation?: { requestId: string; donorProfileId: string; expiresInSeconds: number; rawText?: string; urgency?: string } | null;
+}> {
   const res = await api.get('/donors/me');
   return res.data;
 }

@@ -35,13 +35,40 @@ router.post('/:id/availability', authenticate, async (req, res, next) => {
   }
 });
 
+const EmergencyRequest = require('../models/EmergencyRequest');
+const { getRedis }       = require('../config/redis');
+
 // ── GET /api/v1/donors/me ────────────────────────────────────────
-// Return the current user's DonorProfile (used by the donor dashboard)
+// Return the current user's DonorProfile and activeReservation if reserved
 router.get('/me', authenticate, async (req, res, next) => {
   try {
     const profile = await DonorProfile.findOne({ userId: req.userId });
     if (!profile) return res.status(404).json({ error: 'No donor profile found' });
-    res.json({ profile });
+
+    let activeReservation = null;
+    if (profile.status === 'reserved') {
+      const lockKey = `lock:donor:${profile._id}`;
+      const activeReq = await EmergencyRequest.findOne({
+        currentLockKey: lockKey,
+        status: 'reserved',
+      });
+
+      if (activeReq) {
+        // Fetch remaining lock TTL from Redis
+        const ttlMs = await getRedis().pttl(lockKey);
+        const expiresInSeconds = ttlMs > 0 ? Math.ceil(ttlMs / 1000) : 900;
+
+        activeReservation = {
+          requestId: activeReq._id,
+          donorProfileId: profile._id,
+          expiresInSeconds,
+          rawText: activeReq.rawText,
+          urgency: activeReq.parsed?.urgency || 'critical',
+        };
+      }
+    }
+
+    res.json({ profile, activeReservation });
   } catch (err) {
     next(err);
   }

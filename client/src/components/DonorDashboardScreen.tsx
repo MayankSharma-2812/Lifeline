@@ -14,6 +14,12 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
   const [error, setError] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
+  const [initialReservation, setInitialReservation] = useState<{
+    requestId: string;
+    donorProfileId: string;
+    expiresInSeconds: number;
+  } | null>(null);
+
   const { incoming, dismiss } = useDonorNotifications();
 
   useEffect(() => {
@@ -26,12 +32,17 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
     try {
       const res = await getMyDonorProfileApi();
       setProfile(res.profile);
+      if (res.activeReservation) {
+        setInitialReservation(res.activeReservation);
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Could not fetch donor profile.');
     } finally {
       setLoading(false);
     }
   };
+
+  const activeAlert = incoming || initialReservation;
 
   const handleToggle = async () => {
     if (!profile) return;
@@ -56,12 +67,13 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
   };
 
   const handleAcceptIncoming = async () => {
-    if (!incoming || !profile) return;
+    if (!activeAlert || !profile) return;
     setActionMsg(null);
     try {
-      await confirmReservationApi(incoming.requestId, profile._id);
+      await confirmReservationApi(activeAlert.requestId, profile._id);
       setActionMsg('Reservation accepted! Thank you for donating.');
       dismiss();
+      setInitialReservation(null);
       fetchProfile();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to confirm reservation.');
@@ -69,12 +81,13 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
   };
 
   const handleDeclineIncoming = async () => {
-    if (!incoming || !profile) return;
+    if (!activeAlert || !profile) return;
     setActionMsg(null);
     try {
-      await declineReservationApi(incoming.requestId, profile._id, 'declined');
+      await declineReservationApi(activeAlert.requestId, profile._id, 'declined');
       setActionMsg('Reservation declined. Match escalated to next candidate.');
       dismiss();
+      setInitialReservation(null);
       fetchProfile();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to decline reservation.');
@@ -144,7 +157,7 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
       )}
 
       {/* Real-time Incoming Reservation Alert Card */}
-      {incoming && (
+      {activeAlert && (
         <div className="bg-amber-50 border-2 border-amber-400 dark:bg-amber-950/40 dark:border-amber-600 rounded-xl p-6 shadow-md space-y-4 animate-pulse">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
@@ -152,7 +165,7 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
               <span>EMERGENCY RESERVATION REQUEST DISPATCHED</span>
             </div>
             <span className="font-mono text-xs text-amber-800 bg-amber-200 px-2 py-0.5 rounded font-bold">
-              TTL: {incoming.expiresInSeconds}s
+              TTL: {activeAlert.expiresInSeconds}s
             </span>
           </div>
           <p className="text-xs text-amber-900 dark:text-amber-200">
