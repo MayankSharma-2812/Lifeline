@@ -1,34 +1,194 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Candidate, EmergencyRequest, User } from './types';
+import { refreshApi, logoutApi } from './lib/api';
+import { useSocket } from './hooks/useSocket';
+import { useSessionRevoked } from './hooks/useSessionRevoked';
+import { Header } from './components/Header';
+import { AuthScreen } from './components/AuthScreen';
+import { EmergencyFormScreen } from './components/EmergencyFormScreen';
+import { MatchingDonorScreen } from './components/MatchingDonorScreen';
+import { ReservationStatusScreen } from './components/ReservationStatusScreen';
+import { DonorDashboardScreen } from './components/DonorDashboardScreen';
+import { AuditVerifyScreen } from './components/AuditVerifyScreen';
 
-/**
- * App router — screens wired up in Phase 6.
- * Placeholder routes keep the scaffold compiling and routing correctly now.
- */
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* Phase 6: replace placeholders with real screen components */}
-        <Route path="/login" element={<Placeholder label="Login" />} />
-        <Route path="/signup" element={<Placeholder label="Sign Up" />} />
-        <Route path="/request" element={<Placeholder label="Emergency Intake" />} />
-        <Route path="/matches/:requestId" element={<Placeholder label="Donor Matches" />} />
-        <Route path="/status/:requestId" element={<Placeholder label="Reservation Status" />} />
-        <Route path="/donor/dashboard" element={<Placeholder label="Donor Dashboard" />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
+export const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [initializing, setInitializing] = useState(true);
+  const [dark, setDark] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-function Placeholder({ label }: { label: string }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 text-white">
-      <div className="text-center">
-        <div className="mb-2 text-4xl">🩸</div>
-        <h1 className="text-2xl font-bold">LifeLine</h1>
-        <p className="mt-1 text-gray-400">{label} — coming in Phase 6</p>
+  // App state flow for requesters
+  const [activeScreen, setActiveScreen] = useState<
+    'intake' | 'matches' | 'reservation' | 'dashboard' | 'verify'
+  >('intake');
+
+  const [currentRequest, setCurrentRequest] = useState<{
+    requestId: string;
+    parsed: EmergencyRequest['parsed'];
+    candidates: Candidate[];
+  } | null>(null);
+
+  const [reservedDonor, setReservedDonor] = useState<{
+    donorProfileId: string;
+    lockKey: string;
+  } | null>(null);
+
+  // Initialize socket lifecycle
+  useSocket();
+
+  // Handle remote session revocation
+  useSessionRevoked(() => {
+    setUser(null);
+    setToast('Session revoked remotely from another device/logout.');
+  });
+
+  // Dark mode effect
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [dark]);
+
+  // Check initial session via silent refresh
+  useEffect(() => {
+    async function initAuth() {
+      try {
+        const res = await refreshApi();
+        if (res.accessToken) {
+          // Parse user role/details from token payload or refetch
+          const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
+          setUser({
+            _id: payload.userId,
+            name: payload.name || 'User',
+            email: payload.email || '',
+            phone: payload.phone || '',
+            role: payload.role || 'requester',
+          });
+          setActiveScreen(payload.role === 'donor' ? 'dashboard' : 'intake');
+        }
+      } catch {
+        // No active session — present AuthScreen
+      } finally {
+        setInitializing(false);
+      }
+    }
+    initAuth();
+  }, []);
+
+  const handleAuthSuccess = (u: User) => {
+    setUser(u);
+    setActiveScreen(u.role === 'donor' ? 'dashboard' : 'intake');
+  };
+
+  const handleLogout = async () => {
+    await logoutApi();
+    setUser(null);
+    setCurrentRequest(null);
+    setReservedDonor(null);
+  };
+
+  const handleRequestCreated = (data: {
+    requestId: string;
+    parsed: EmergencyRequest['parsed'];
+    candidates: Candidate[];
+  }) => {
+    setCurrentRequest(data);
+    setActiveScreen('matches');
+  };
+
+  const handleDonorReserved = (donorProfileId: string, lockKey: string) => {
+    setReservedDonor({ donorProfileId, lockKey });
+    setActiveScreen('reservation');
+  };
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen bg-surface dark:bg-on-background flex flex-col items-center justify-center p-4">
+        <div className="flex items-center gap-3 text-primary dark:text-primary-fixed-dim">
+          <span className="material-symbols-outlined text-4xl animate-spin">progress_activity</span>
+          <span className="font-bold text-xl font-headline-md">Initializing LifeLine...</span>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-surface dark:bg-on-background text-on-surface transition-colors duration-200">
+      <Header
+        user={user}
+        dark={dark}
+        onToggleTheme={() => setDark(!dark)}
+        onLogout={handleLogout}
+        onNavigateHome={() => {
+          if (user) {
+            setActiveScreen(user.role === 'donor' ? 'dashboard' : 'intake');
+          }
+        }}
+      />
+
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-amber-500 text-white font-bold text-xs px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">warning</span>
+          <span>{toast}</span>
+          <button onClick={() => setToast(null)} className="ml-2 underline text-[10px]">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <main className="pt-24 pb-16 px-4 md:px-10 max-w-7xl mx-auto">
+        {!user ? (
+          <div className="flex items-center justify-center min-h-[calc(100vh-140px)]">
+            <AuthScreen onSuccess={handleAuthSuccess} />
+          </div>
+        ) : user.role === 'donor' ? (
+          <DonorDashboardScreen user={user} />
+        ) : (
+          <>
+            {activeScreen === 'intake' && (
+              <EmergencyFormScreen onSuccess={handleRequestCreated} />
+            )}
+
+            {activeScreen === 'matches' && currentRequest && (
+              <MatchingDonorScreen
+                requestId={currentRequest.requestId}
+                parsed={currentRequest.parsed}
+                candidates={currentRequest.candidates}
+                onDonorReserved={handleDonorReserved}
+                onNewRequest={() => setActiveScreen('intake')}
+              />
+            )}
+
+            {activeScreen === 'reservation' && currentRequest && reservedDonor && (
+              <ReservationStatusScreen
+                requestId={currentRequest.requestId}
+                donorProfileId={reservedDonor.donorProfileId}
+                lockKey={reservedDonor.lockKey}
+                onDone={() => setActiveScreen('intake')}
+              />
+            )}
+
+            {activeScreen === 'verify' && currentRequest && (
+              <AuditVerifyScreen
+                requestId={currentRequest.requestId}
+                parsed={currentRequest.parsed}
+                selectedCandidate={
+                  reservedDonor
+                    ? currentRequest.candidates.find(
+                        (c) => c.donorProfileId === reservedDonor.donorProfileId
+                      )
+                    : null
+                }
+                onBack={() => setActiveScreen('matches')}
+              />
+            )}
+          </>
+        )}
+      </main>
     </div>
   );
-}
+};
+
+export default App;
