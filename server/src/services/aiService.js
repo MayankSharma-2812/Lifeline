@@ -1,28 +1,71 @@
 /**
  * aiService — OpenRouter wrapper + deterministic fallback.
  *
- * Phase 2: deterministic fallback only (regex/keyword extraction).
- * Phase 5: OpenRouter call added as the primary path; this fallback
- *           activates whenever the AI call fails or times out.
- *
  * Per HLD §3.5: "AI is advisory, never authoritative, over the core matching decision."
+ * Both public functions try OpenRouter first; any failure (network error, timeout,
+ * invalid JSON, missing API key) activates the deterministic fallback so the app
+ * keeps working without the AI layer.
+ *
+ * Per LLD §7 — exact API contract implemented below.
  */
 
-const BLOOD_GROUPS = ['AB+', 'AB-', 'O+', 'O-', 'A+', 'A-', 'B+', 'B-'];
+const BLOOD_GROUPS     = ['AB+', 'AB-', 'O+', 'O-', 'A+', 'A-', 'B+', 'B-'];
+const URGENCY_VALUES   = ['critical', 'high', 'moderate'];
+const PARSE_TIMEOUT_MS = 8_000;  // 8 s — don't hold up the matching pipeline longer
+const EXPLAIN_TIMEOUT_MS = 10_000;
 
-// ── Deterministic fallback ───────────────────────────────────────
+// ── OpenRouter HTTP helper ───────────────────────────────────────
 
 /**
- * Extract {bloodGroup, urgency} from free text using keyword/regex matching.
- * Order matters: try longer tokens first to avoid 'B' matching before 'AB'.
+ * Single fetch-based OpenRouter wrapper per LLD §7.
+ * Returns the raw content string or throws on any error.
  */
+async function _openrouterRequest(messages, useJsonMode, timeoutMs) {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error('OPENROUTER_API_KEY not configured');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const body = {
+      model:    process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+      messages,
+      ...(useJsonMode && { response_format: { type: 'json_object' } }),
+    };
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization:  `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://lifeline-app.vercel.app', // required by OpenRouter
+        'X-Title':      'LifeLine',
+      },
+      body:   JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`OpenRouter HTTP ${res.status}: ${text.slice(0, 120)}`);
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content ?? null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ── Deterministic fallback ───────────────────────────────────────
+// Blood groups ordered longest-first so 'AB+' matches before 'B+', etc.
+
 function parseEmergencyTextFallback(rawText) {
   const upper = rawText.toUpperCase();
 
-  // Blood group — try each token in order (AB+/AB- before A/B to avoid partial match)
   const bloodGroup = BLOOD_GROUPS.find((g) => upper.includes(g)) ?? null;
 
-  // Urgency — keyword ladder
   let urgency = 'moderate';
   if (/CRITICAL|ICU|LIFE[- ]THREAT|IMMEDIATE|CRASH|EMERGENCY/.test(upper)) {
     urgency = 'critical';
@@ -33,40 +76,83 @@ function parseEmergencyTextFallback(rawText) {
   return { bloodGroup, urgency };
 }
 
-// ── OpenRouter call (added Phase 5 — stub returns null to trigger fallback) ──
-
-async function _callOpenRouter(_rawText) {
-  // ponytail: Phase 5 replaces this stub with the real fetch() call per LLD §7
-  return null;
-}
-
-// ── Public API ───────────────────────────────────────────────────
+// ── Public: parseEmergencyText ───────────────────────────────────
 
 /**
  * Parse a free-text emergency description into { bloodGroup, urgency }.
- * Tries OpenRouter first; falls back to deterministic extraction on any failure.
+ * Per LLD §7 — tries OpenRouter first, falls back to deterministic extraction.
  */
 async function parseEmergencyText(rawText) {
   try {
-    const aiResult = await _callOpenRouter(rawText);
-    if (aiResult?.bloodGroup) return aiResult;
-  } catch {
-    // intentional fall-through to deterministic fallback
+    const content = await _openrouterRequest(
+      [
+        {
+          role: 'system',
+          // "json" must appear in the prompt when using response_format:json_object
+          content:
+            'Extract bloodGroup (exactly one of: O+, O-, A+, A-, B+, B-, AB+, AB-) and urgency (critical|high|moderate) as strict JSON with exactly these two keys. No prose, no explanation.',
+        },
+        { role: 'user', content: rawText },
+      ],
+      true, // useJsonMode
+      PARSE_TIMEOUT_MS
+    );
+
+    if (!content) throw new Error('Empty AI response');
+
+    const parsed = JSON.parse(content);
+
+    // Validate — AI output must be well-formed or we fall back
+    if (
+      !BLOOD_GROUPS.includes(parsed.bloodGroup) ||
+      !URGENCY_VALUES.includes(parsed.urgency)
+    ) {
+      throw new Error('AI returned invalid bloodGroup or urgency');
+    }
+
+    return { bloodGroup: parsed.bloodGroup, urgency: parsed.urgency, source: 'ai' };
+  } catch (err) {
+    // Log but never let AI failure crash the request pipeline
+    // eslint-disable-next-line no-console
+    console.warn('[ai] parseEmergencyText fell back to deterministic:', err.message);
+    return { ...parseEmergencyTextFallback(rawText), source: 'fallback' };
   }
-  return parseEmergencyTextFallback(rawText);
 }
 
+// ── Public: explainMatch ─────────────────────────────────────────
+
 /**
- * Generate a one-line human-readable explanation for a donor match.
- * Phase 5 replaces the stub with a real OpenRouter call.
- * @param {{ name, distanceMetres, bloodGroup, reliabilityScore }} match
- * @param {string} recipientBloodGroup
- * @returns {Promise<string>}
+ * Generate a one-line human-readable explanation for a ranked donor match.
+ * Per HLD §3.5 — advisory only, UI still shows the match if this fails.
  */
 async function explainMatch(match, recipientBloodGroup) {
-  // ponytail: Phase 5 adds OpenRouter call here; deterministic explanation for now
   const km = (match.distanceMetres / 1000).toFixed(1);
-  return `${match.bloodGroup} donor, ${km} km away, reliability score ${match.reliabilityScore} — compatible with ${recipientBloodGroup}.`;
+
+  try {
+    const content = await _openrouterRequest(
+      [
+        {
+          role: 'system',
+          content:
+            'You are assisting in a medical emergency blood donor search. Write exactly ONE concise sentence (under 25 words) explaining why this donor is a strong match. Be specific and reassuring. No markdown, no quotes.',
+        },
+        {
+          role: 'user',
+          content: `Donor blood group: ${match.bloodGroup}. Distance: ${km} km. Reliability score: ${match.reliabilityScore}/100. Recipient needs: ${recipientBloodGroup}.`,
+        },
+      ],
+      false, // plain text response
+      EXPLAIN_TIMEOUT_MS
+    );
+
+    if (content?.trim()) return content.trim();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[ai] explainMatch fell back to deterministic:', err.message);
+  }
+
+  // Deterministic fallback — always returns something useful
+  return `${match.bloodGroup} donor ${km} km away — compatible with ${recipientBloodGroup}, reliability score ${match.reliabilityScore}/100.`;
 }
 
 module.exports = { parseEmergencyText, explainMatch, parseEmergencyTextFallback };
