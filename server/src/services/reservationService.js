@@ -2,7 +2,7 @@ const { getRedis }        = require('../config/redis');
 const DonorProfile        = require('../models/DonorProfile');
 const EmergencyRequest    = require('../models/EmergencyRequest');
 const AuditLog            = require('../models/AuditLog');
-const { emitSocketEvent } = require('../socket');
+const { emitSocketEvent, emitToUser } = require('../socket');
 const { runMatchingForRequest } = require('./matchingService');
 
 const LOCK_TTL_SECONDS = 900; // 15 minutes — per LLD §2
@@ -55,6 +55,18 @@ async function reserveDonor(requestId, donorProfileId, actorUserId, ttl = LOCK_T
 
   // ── Push real-time event to the request room ─────────────────
   emitSocketEvent(requestId, 'reserved', { donorProfileId, expiresInSeconds: ttl });
+
+  // ── Also notify the donor directly on their personal room ─────
+  // The donor may not have joined the request room yet — this ensures
+  // they see the incoming reservation notification on their dashboard.
+  const donorDoc = await DonorProfile.findById(donorProfileId).select('userId');
+  if (donorDoc) {
+    emitToUser(donorDoc.userId.toString(), 'reservation:incoming', {
+      requestId:       requestId.toString(),
+      donorProfileId:  donorProfileId.toString(),
+      expiresInSeconds: ttl,
+    });
+  }
 
   return { lockKey, donorProfileId };
 }

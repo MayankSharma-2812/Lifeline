@@ -112,10 +112,14 @@ async function refresh(sessionId, refreshToken) {
 
 /**
  * Logout — per LLD §5. Deletes the Redis session key; cookie becomes instantly dead.
+ * Returns the userId so the caller can emit a 'session-revoked' Socket.io event.
  */
 async function logout(sessionId) {
-  if (!sessionId) return;
+  if (!sessionId) return null;
+  // Fetch userId before deletion so the route can emit session-revoked
+  const session = await getRedis().get(sessionKey(sessionId));
   await getRedis().del(sessionKey(sessionId));
+  return session?.userId ?? null;
 }
 
 // ── Internal ─────────────────────────────────────────────────────

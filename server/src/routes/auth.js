@@ -1,7 +1,8 @@
-const { Router }                = require('express');
+const { Router }                 = require('express');
 const { body, validationResult } = require('express-validator');
-const authService               = require('../services/authService');
-const { authenticate }          = require('../middleware/auth');
+const authService                = require('../services/authService');
+const { authenticate }           = require('../middleware/auth');
+const { emitToUser }             = require('../socket');
 
 const router = Router();
 
@@ -106,11 +107,15 @@ router.post('/refresh', async (req, res, next) => {
 
 // ── POST /api/v1/auth/logout ─────────────────────────────────────
 // Deletes the Redis session — makes the cookie instantly dead on all devices.
+// Broadcasts 'session-revoked' to the user's personal socket room so any other
+// open tab/device shows the toast immediately without waiting for a 401.
 router.post('/logout', authenticate, async (req, res, next) => {
   const parsed = parseRefreshCookie(req);
   try {
-    await authService.logout(parsed?.sessionId);
+    const userId = await authService.logout(parsed?.sessionId);
     clearRefreshCookie(res);
+    // Notify all open tabs/devices belonging to this user
+    if (userId) emitToUser(userId, 'session-revoked', {});
     res.json({ message: 'Logged out' });
   } catch (err) {
     next(err);
