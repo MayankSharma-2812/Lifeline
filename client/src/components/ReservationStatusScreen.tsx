@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
+import { toast } from 'sonner';
+import { Clock, CheckCircle2, Lock, AlertTriangle, XCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useRequestStatus } from '../hooks/useRequestStatus';
 import { confirmReservationApi, declineReservationApi } from '../lib/api';
 
@@ -57,6 +60,12 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
     setError(null);
     try {
       const res = await declineReservationApi(requestId, donorProfileId, outcome);
+      
+      // Toast notification moment (b) per spec: "No response — matched with next nearest donor"
+      if (outcome === 'no_response' || res.nextCandidate) {
+        toast.info('No response — matched with next nearest donor');
+      }
+
       setMessage(
         res.nextCandidate
           ? `Escalated — Lock released. Next donor matching triggered.`
@@ -69,11 +78,18 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
     }
   };
 
+  const steps = [
+    { id: 'matched', label: 'Matched', icon: CheckCircle2 },
+    { id: 'reserved', label: 'Reserved', icon: Lock },
+    { id: 'confirmed', label: 'Confirmed', icon: ShieldCheck },
+    { id: 'escalated', label: currentStatus === 'escalated' ? 'Escalated' : 'Complete', icon: AlertTriangle },
+  ];
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* Main Reservation Card */}
       <div className="bg-white dark:bg-on-background border border-outline-variant dark:border-outline rounded-xl p-8 shadow-lg space-y-8 relative overflow-hidden">
-        {/* Status Stepper */}
+        {/* Status Stepper with smooth motion state transitions */}
         <div className="border-b border-outline-variant pb-6">
           <div className="flex justify-between items-center mb-4">
             <span className="font-label-caps text-xs text-secondary uppercase tracking-widest">
@@ -85,66 +101,84 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
           </div>
 
           <div className="grid grid-cols-4 gap-2 text-center text-xs font-semibold">
-            <div className="p-2 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 flex items-center justify-center gap-1">
-              <span className="material-symbols-outlined text-sm">check_circle</span>
-              <span>Matched</span>
-            </div>
-            <div
-              className={`p-2 rounded flex items-center justify-center gap-1 ${
-                currentStatus === 'reserved'
-                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500'
-                  : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800'
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">lock</span>
-              <span>Reserved</span>
-            </div>
-            <div
-              className={`p-2 rounded flex items-center justify-center gap-1 ${
-                currentStatus === 'confirmed'
-                  ? 'bg-emerald-500 text-white font-bold'
-                  : 'bg-surface-container-low text-secondary'
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">verified</span>
-              <span>Confirmed</span>
-            </div>
-            <div
-              className={`p-2 rounded flex items-center justify-center gap-1 ${
-                currentStatus === 'escalated' || currentStatus === 'expired'
-                  ? 'bg-rose-100 text-rose-800'
-                  : 'bg-surface-container-low text-secondary'
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">published_with_changes</span>
-              <span>{currentStatus === 'escalated' ? 'Escalated' : 'Complete'}</span>
-            </div>
+            {steps.map((step) => {
+              const StepIcon = step.icon;
+              const isActive =
+                (step.id === 'matched' && ['matched', 'reserved', 'confirmed'].includes(currentStatus)) ||
+                (step.id === 'reserved' && ['reserved', 'confirmed'].includes(currentStatus)) ||
+                (step.id === 'confirmed' && currentStatus === 'confirmed') ||
+                (step.id === 'escalated' && ['escalated', 'expired'].includes(currentStatus));
+
+              const isCurrent =
+                (step.id === 'reserved' && currentStatus === 'reserved') ||
+                (step.id === 'confirmed' && currentStatus === 'confirmed') ||
+                (step.id === 'escalated' && ['escalated', 'expired'].includes(currentStatus));
+
+              return (
+                <motion.div
+                  key={step.id}
+                  initial={false}
+                  animate={{
+                    scale: isCurrent ? 1.02 : 1,
+                  }}
+                  transition={{ duration: 0.25 }}
+                  className={`p-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors relative ${
+                    isCurrent
+                      ? step.id === 'confirmed'
+                        ? 'bg-emerald-600 text-white font-bold shadow'
+                        : step.id === 'escalated'
+                        ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 font-bold border border-rose-300'
+                        : 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 font-bold border border-amber-400'
+                      : isActive
+                      ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
+                      : 'bg-surface-container-low text-secondary'
+                  }`}
+                >
+                  <StepIcon className="w-3.5 h-3.5" />
+                  <span>{step.label}</span>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Big Countdown Display */}
-        <div className="text-center py-4 bg-surface-container-low dark:bg-tertiary-container rounded-2xl border border-outline-variant p-6">
-          <span className="font-label-caps text-xs text-secondary uppercase tracking-widest block mb-2">
-            Reservation Lock TTL Countdown
-          </span>
-          <div className="font-display-timer text-5xl md:text-6xl text-primary dark:text-primary-fixed-dim font-bold tracking-tight font-mono">
-            {formatTimer(secondsLeft)}
+        {/* Big Countdown Display with ticking animation */}
+        <div className="text-center py-6 bg-surface-container-low dark:bg-tertiary-container rounded-2xl border border-outline-variant p-6 relative overflow-hidden">
+          <div className="flex items-center justify-center gap-2 mb-2 text-secondary">
+            <Clock className="w-4 h-4 text-primary animate-pulse" />
+            <span className="font-label-caps text-xs uppercase tracking-widest">
+              Reservation Lock TTL Countdown
+            </span>
           </div>
-          <p className="text-xs text-secondary mt-2">
+
+          {/* Visible tick-down visual state */}
+          <div className="font-display-timer text-5xl md:text-6xl text-primary dark:text-primary-fixed-dim font-bold tracking-tight font-mono">
+            <motion.span
+              key={secondsLeft}
+              initial={{ opacity: 0.8, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.15 }}
+              className="inline-block"
+            >
+              {formatTimer(secondsLeft)}
+            </motion.span>
+          </div>
+
+          <p className="text-xs text-secondary mt-3">
             Donor profile locked via Redis <code className="text-primary font-bold">SET NX PX</code>. No other requester can reserve this donor while active.
           </p>
         </div>
 
         {message && (
           <div className="p-4 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 rounded-xl flex items-center gap-3 font-semibold text-sm">
-            <span className="material-symbols-outlined">check_circle</span>
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
             <span>{message}</span>
           </div>
         )}
 
         {error && (
           <div className="p-4 bg-error-container text-on-error-container rounded-xl flex items-center gap-3 font-semibold text-sm">
-            <span className="material-symbols-outlined">error</span>
+            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -156,7 +190,7 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
             disabled={loading || currentStatus === 'confirmed'}
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow transition-all duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-50"
           >
-            <span className="material-symbols-outlined">check_circle</span>
+            <CheckCircle2 className="w-4 h-4" />
             <span>Confirm Donation Arrival</span>
           </button>
 
@@ -165,7 +199,7 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
             disabled={loading || currentStatus === 'confirmed'}
             className="w-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant font-semibold py-3.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-error">cancel</span>
+            <XCircle className="w-4 h-4 text-error" />
             <span>Decline / Escalate Match</span>
           </button>
         </div>
@@ -173,9 +207,10 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
         <div className="text-center pt-2">
           <button
             onClick={onDone}
-            className="text-xs font-semibold text-secondary hover:text-primary underline transition-colors"
+            className="text-xs font-semibold text-secondary hover:text-primary underline transition-colors inline-flex items-center gap-1"
           >
-            Return to Dashboard
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Return to Dashboard</span>
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Sparkles, Lock, ArrowLeft } from 'lucide-react';
 import { Candidate, EmergencyRequest } from '../types';
 
 interface AuditVerifyScreenProps {
@@ -28,9 +29,10 @@ export const AuditVerifyScreen: React.FC<AuditVerifyScreenProps> = ({
         </div>
         <button
           onClick={onBack}
-          className="px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded-lg text-xs font-semibold text-on-surface transition-colors"
+          className="px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded-lg text-xs font-semibold text-on-surface transition-colors flex items-center gap-1.5"
         >
-          Back
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back</span>
         </button>
       </div>
 
@@ -39,7 +41,7 @@ export const AuditVerifyScreen: React.FC<AuditVerifyScreenProps> = ({
         {/* Parsed Intake Details */}
         <div className="bg-white dark:bg-on-background border border-outline-variant rounded-xl p-6 space-y-4">
           <div className="flex items-center gap-2 text-primary font-bold text-sm">
-            <span className="material-symbols-outlined text-xl">auto_awesome</span>
+            <Sparkles className="w-4 h-4" />
             <h3>OpenRouter AI Intake Parser</h3>
           </div>
           <div className="space-y-3 text-xs">
@@ -61,7 +63,7 @@ export const AuditVerifyScreen: React.FC<AuditVerifyScreenProps> = ({
         {/* Selected Candidate Audit */}
         <div className="bg-white dark:bg-on-background border border-outline-variant rounded-xl p-6 space-y-4">
           <div className="flex items-center gap-2 text-primary font-bold text-sm">
-            <span className="material-symbols-outlined text-xl">lock</span>
+            <Lock className="w-4 h-4" />
             <h3>Redis Lock Concurrency State</h3>
           </div>
           {selectedCandidate ? (

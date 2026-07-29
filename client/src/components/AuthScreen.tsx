@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Droplets, Eye, EyeOff, HeartHandshake, MapPin, Navigation, ArrowRight, AlertCircle } from 'lucide-react';
 import { BloodGroup, Role, User } from '../types';
 import { loginApi, signupApi } from '../lib/api';
 
@@ -75,12 +76,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       {/* Header Section */}
       <div className="mb-6 text-center">
         <div className="inline-flex items-center justify-center mb-3">
-          <span
-            className="material-symbols-outlined text-primary dark:text-primary-fixed-dim text-5xl"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-          >
-            bloodtype
-          </span>
+          <div className="w-14 h-14 rounded-2xl bg-primary-container/10 flex items-center justify-center text-primary">
+            <Droplets className="w-8 h-8 fill-current" />
+          </div>
         </div>
         <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2 tracking-tight">
           LifeLine
@@ -124,7 +122,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 
       {error && (
         <div className="mb-4 p-3 bg-error-container text-on-error-container rounded-lg text-xs font-semibold flex items-center gap-2">
-          <span className="material-symbols-outlined text-sm">error</span>
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -138,7 +136,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
             </label>
             <input
               required
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-3 font-body-md text-on-surface transition-all"
+              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-3 font-body-md text-on-surface transition-all text-sm"
               placeholder="e.g. Dr. Ramesh Kumar"
               type="text"
               value={name}
@@ -153,7 +151,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           </label>
           <input
             required
-            className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-3 font-body-md text-on-surface transition-all"
+            className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-3 font-body-md text-on-surface transition-all text-sm"
             placeholder="e.g. name@hospital.com"
             type="text"
             value={identifier}
@@ -168,7 +166,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           <div className="relative">
             <input
               required
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-3 font-body-md text-on-surface transition-all pr-10"
+              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-lg p-3 font-body-md text-on-surface transition-all pr-10 text-sm"
               placeholder="••••••••"
               type={showPassword ? 'text' : 'password'}
               value={password}
@@ -179,9 +177,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
               className="absolute right-3 top-3 text-secondary hover:text-on-surface"
               onClick={() => setShowPassword(!showPassword)}
             >
-              <span className="material-symbols-outlined text-xl">
-                {showPassword ? 'visibility_off' : 'visibility'}
-              </span>
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </div>
@@ -191,13 +187,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
             {/* Donor Toggle Switch */}
             <div className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-tertiary-container rounded-xl border border-outline-variant dark:border-outline">
               <div className="flex items-center gap-3">
-                <span
-                  className="material-symbols-outlined text-primary dark:text-on-primary-container"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  volunteer_activism
-                </span>
-                <span className="font-body-md font-semibold text-on-surface">
+                <HeartHandshake className="w-5 h-5 text-primary" />
+                <span className="font-body-md font-semibold text-on-surface text-sm">
                   I'm a donor
                 </span>
               </div>
@@ -243,9 +234,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                   </label>
                   <div className="relative flex gap-2">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-3 material-symbols-outlined text-secondary text-sm">
-                        location_on
-                      </span>
+                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-secondary" />
                       <input
                         className="w-full pl-9 bg-surface-container-lowest border border-outline-variant rounded-lg p-3 font-body-md text-on-surface text-sm"
                         placeholder="Location"
@@ -260,7 +249,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                       className="px-3 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded-lg flex items-center justify-center text-primary"
                       title="Use My GPS"
                     >
-                      <span className="material-symbols-outlined">my_location</span>
+                      <Navigation className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -272,14 +261,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-primary-container hover:bg-primary text-white font-semibold py-3 px-4 rounded-xl shadow transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full bg-primary-container hover:bg-primary text-white font-semibold py-3 px-4 rounded-xl shadow transition-all duration-200 flex items-center justify-center gap-2 text-sm disabled:opacity-50"
         >
           {loading ? (
             <span className="material-symbols-outlined animate-spin">progress_activity</span>
           ) : (
             <>
               <span>{isSignup ? 'Create Account' : 'Sign In'}</span>
-              <span className="material-symbols-outlined text-lg">arrow_forward</span>
+              <ArrowRight className="w-4 h-4" />
             </>
           )}
         </button>

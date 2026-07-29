@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import Skeleton from 'react-loading-skeleton';
+import { ShieldCheck, Droplets, Radio, Siren, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { DonorProfile, User } from '../types';
 import { getMyDonorProfileApi, toggleDonorAvailabilityApi, confirmReservationApi, declineReservationApi } from '../lib/api';
 import { useDonorNotifications } from '../hooks/useDonorNotifications';
@@ -96,9 +98,14 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
 
   if (loading) {
     return (
-      <div className="p-12 text-center text-secondary flex items-center justify-center gap-2">
-        <span className="material-symbols-outlined animate-spin">progress_activity</span>
-        <span>Loading Donor Control Panel...</span>
+      <div className="w-full max-w-4xl mx-auto space-y-6">
+        <div className="bg-surface-container border border-outline-variant rounded-xl p-6 border-l-[6px] border-l-primary-container">
+          <Skeleton height={32} width="40%" />
+          <Skeleton height={16} width="70%" className="mt-2" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Skeleton height={120} count={3} className="rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -144,14 +151,14 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
 
       {error && (
         <div className="p-4 bg-error-container text-on-error-container rounded-xl flex items-center gap-3 font-semibold text-sm">
-          <span className="material-symbols-outlined">error</span>
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {actionMsg && (
         <div className="p-4 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 rounded-xl flex items-center gap-3 font-semibold text-sm">
-          <span className="material-symbols-outlined">check_circle</span>
+          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
           <span>{actionMsg}</span>
         </div>
       )}
@@ -160,8 +167,8 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
       {activeAlert && (
         <div className="bg-amber-50 border-2 border-amber-400 dark:bg-amber-950/40 dark:border-amber-600 rounded-xl p-6 shadow-md space-y-4 animate-pulse">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
-              <span className="material-symbols-outlined text-2xl">e911_emergency</span>
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-sm">
+              <Siren className="w-5 h-5 text-amber-600" />
               <span>EMERGENCY RESERVATION REQUEST DISPATCHED</span>
             </div>
             <span className="font-mono text-xs text-amber-800 bg-amber-200 px-2 py-0.5 rounded font-bold">
@@ -193,7 +200,7 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
         <div className="bg-white dark:bg-on-background border border-outline-variant dark:border-outline p-6 rounded-xl space-y-2 shadow-sm">
           <div className="flex justify-between items-center text-secondary">
             <span className="font-label-caps text-xs uppercase">Reliability Score</span>
-            <span className="material-symbols-outlined text-primary text-base">verified</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="font-data-metric text-3xl font-bold text-on-surface font-mono">
             {profile?.reliabilityScore ?? 100} / 100
@@ -206,7 +213,7 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
         <div className="bg-white dark:bg-on-background border border-outline-variant dark:border-outline p-6 rounded-xl space-y-2 shadow-sm">
           <div className="flex justify-between items-center text-secondary">
             <span className="font-label-caps text-xs uppercase">Blood Group</span>
-            <span className="material-symbols-outlined text-primary text-base">invert_colors</span>
+            <Droplets className="w-4 h-4 text-primary" />
           </div>
           <div className="font-data-metric text-3xl font-bold text-primary font-mono">
             {profile?.bloodGroup || 'O+'}
@@ -219,7 +226,7 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
         <div className="bg-white dark:bg-on-background border border-outline-variant dark:border-outline p-6 rounded-xl space-y-2 shadow-sm">
           <div className="flex justify-between items-center text-secondary">
             <span className="font-label-caps text-xs uppercase">Current Status</span>
-            <span className="material-symbols-outlined text-primary text-base">sensors</span>
+            <Radio className="w-4 h-4 text-primary" />
           </div>
           <div className="font-data-metric text-2xl font-bold text-on-surface capitalize font-mono">
             {profile?.status || 'available'}

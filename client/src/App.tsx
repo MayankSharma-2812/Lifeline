@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Toaster, toast } from 'sonner';
+import 'react-loading-skeleton/dist/skeleton.css';
 import { Candidate, EmergencyRequest, User } from './types';
 import { refreshApi, logoutApi } from './lib/api';
 import { useSocket } from './hooks/useSocket';
@@ -15,7 +17,6 @@ export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [dark, setDark] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   // App state flow for requesters
   const [activeScreen, setActiveScreen] = useState<
@@ -36,10 +37,10 @@ export const App: React.FC = () => {
   // Initialize socket lifecycle
   useSocket();
 
-  // Handle remote session revocation
+  // Handle remote session revocation — auto-dismissing toast (a) per spec
   useSessionRevoked(() => {
     setUser(null);
-    setToast('Session revoked remotely from another device/logout.');
+    toast.error('Session revoked — logged out');
   });
 
   // Dark mode effect
@@ -57,7 +58,6 @@ export const App: React.FC = () => {
       try {
         const res = await refreshApi();
         if (res.accessToken) {
-          // Parse user role/details from token payload or refetch
           const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
           setUser({
             _id: payload.userId,
@@ -116,6 +116,8 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface dark:bg-on-background text-on-surface transition-colors duration-200">
+      <Toaster position="top-right" richColors duration={4000} />
+
       <Header
         user={user}
         dark={dark}
@@ -127,16 +129,6 @@ export const App: React.FC = () => {
           }
         }}
       />
-
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-amber-500 text-white font-bold text-xs px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
-          <span className="material-symbols-outlined text-sm">warning</span>
-          <span>{toast}</span>
-          <button onClick={() => setToast(null)} className="ml-2 underline text-[10px]">
-            Dismiss
-          </button>
-        </div>
-      )}
 
       <main className="pt-24 pb-16 px-4 md:px-10 max-w-7xl mx-auto">
         {!user ? (

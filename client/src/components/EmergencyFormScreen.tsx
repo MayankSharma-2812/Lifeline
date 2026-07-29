@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import Skeleton from 'react-loading-skeleton';
+import { Siren, AlertCircle, MapPin, Navigation, Search, Sparkles, Activity, Lock } from 'lucide-react';
 import { Candidate, EmergencyRequest } from '../types';
 import { createEmergencyRequestApi } from '../lib/api';
 
@@ -52,6 +54,30 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
     }
   };
 
+  if (loading) {
+    return (
+      <div className="w-full max-w-4xl mx-auto space-y-6">
+        <div className="bg-surface-container border border-outline-variant rounded-xl p-6 shadow-sm border-l-[6px] border-l-primary-container">
+          <div className="flex items-center gap-4">
+            <Skeleton circle height={56} width={56} />
+            <div className="flex-1">
+              <Skeleton height={28} width="60%" />
+              <Skeleton height={16} width="85%" className="mt-2" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-on-background border border-outline-variant rounded-xl p-6 space-y-4 shadow-sm">
+          <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+            <Sparkles className="w-4 h-4 animate-spin text-primary" />
+            <span>Parsing text & running $geoNear geospatial matching...</span>
+          </div>
+          <Skeleton height={80} count={3} className="my-3 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* Header Banner */}
@@ -59,9 +85,7 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-primary-container text-white rounded-xl flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                emergency
-              </span>
+              <Siren className="w-7 h-7 text-white" />
             </div>
             <div>
               <h1 className="font-headline-lg text-headline-md md:text-headline-lg text-on-surface">
@@ -77,7 +101,7 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
 
       {error && (
         <div className="p-4 bg-error-container text-on-error-container rounded-xl flex items-center gap-3 font-semibold text-sm">
-          <span className="material-symbols-outlined">error</span>
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -125,9 +149,7 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-3 material-symbols-outlined text-secondary text-sm">
-                  location_on
-                </span>
+                <MapPin className="absolute left-3 top-3 w-4 h-4 text-secondary" />
                 <input
                   readOnly
                   className="w-full pl-9 bg-surface-container-lowest border border-outline-variant rounded-lg p-3 font-body-md text-on-surface text-sm"
@@ -139,7 +161,7 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
                 onClick={handleDetectGPS}
                 className="px-4 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant rounded-lg flex items-center gap-2 text-primary font-semibold text-xs transition-colors"
               >
-                <span className="material-symbols-outlined text-sm">my_location</span>
+                <Navigation className="w-3.5 h-3.5" />
                 <span>Detect GPS</span>
               </button>
             </div>
@@ -150,42 +172,31 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
             disabled={loading}
             className="w-full bg-primary-container hover:bg-primary text-white font-semibold py-4 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-3 text-base disabled:opacity-50"
           >
-            {loading ? (
-              <>
-                <span className="material-symbols-outlined animate-spin">progress_activity</span>
-                <span>AI Parsing & Geospatial Matching...</span>
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  search
-                </span>
-                <span>Parse Request & Find Nearest Donors</span>
-              </>
-            )}
+            <Search className="w-5 h-5" />
+            <span>Parse Request & Find Nearest Donors</span>
           </button>
         </div>
 
         {/* Info / Sidebar Card */}
         <div className="space-y-4 bg-surface-container-low dark:bg-tertiary-container border border-outline-variant dark:border-outline rounded-xl p-6 h-fit">
           <div className="flex items-center gap-3 text-primary dark:text-on-primary-container">
-            <span className="material-symbols-outlined text-2xl">auto_awesome</span>
+            <Sparkles className="w-5 h-5" />
             <h3 className="font-bold text-sm">OpenRouter AI Layer</h3>
           </div>
           <p className="text-xs text-secondary leading-relaxed">
             The free-text prompt is evaluated using OpenRouter AI to extract blood group (e.g. O-, AB+) and urgency.
           </p>
           <div className="p-3 bg-white dark:bg-on-background rounded-lg border border-outline-variant text-xs space-y-2">
-            <div className="flex justify-between text-secondary">
-              <span>Geospatial Index:</span>
+            <div className="flex justify-between items-center text-secondary">
+              <span className="flex items-center gap-1"><Activity className="w-3.5 h-3.5" /> Geospatial Index:</span>
               <span className="font-mono font-semibold text-on-surface">2dsphere</span>
             </div>
-            <div className="flex justify-between text-secondary">
-              <span>Max Radius:</span>
+            <div className="flex justify-between items-center text-secondary">
+              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Max Radius:</span>
               <span className="font-mono font-semibold text-on-surface">50 km</span>
             </div>
-            <div className="flex justify-between text-secondary">
-              <span>Concurrency Lock:</span>
+            <div className="flex justify-between items-center text-secondary">
+              <span className="flex items-center gap-1"><Lock className="w-3.5 h-3.5" /> Concurrency Lock:</span>
               <span className="font-mono font-semibold text-primary">Redis SET NX</span>
             </div>
           </div>
