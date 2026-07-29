@@ -2,21 +2,93 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-light: #f8f9ff;
+  --text-light: #0b1c30;
+  --bg-dark: #0b132b;
+  --card-dark: #1c2541;
+  --card-low-dark: #161e38;
+  --border-dark: #2e3a59;
+}
+
 body {
-  background-color: #f8f9ff;
+  background-color: var(--bg-light);
+  color: var(--text-light);
   font-family: 'Inter', sans-serif;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* ── Dark Mode Global Enhancements ── */
 .dark body {
-  background-color: #0b1c30;
+  background-color: #0b132b;
+  color: #f8fafc;
 }
 
+/* Inputs, textareas, and select elements in dark mode */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #161e38 !important;
+  color: #f8fafc !important;
+  border-color: #2e3a59 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Card elevations & surfaces in dark mode */
+.dark main {
+  color: #f8fafc;
+}
+
+.dark .bg-white {
+  background-color: #1c2541 !important;
+}
+
+.dark .border-outline-variant {
+  border-color: #2e3a59 !important;
+}
+
+.dark .text-on-surface {
+  color: #f8fafc !important;
+}
+
+.dark .text-secondary {
+  color: #94a3b8 !important;
+}
+
+.dark .text-on-surface-variant {
+  color: #cbd5e1 !important;
+}
+
+.dark .bg-surface-container-lowest {
+  background-color: #161e38 !important;
+}
+
+.dark .bg-surface-container-low {
+  background-color: #161e38 !important;
+}
+
+.dark .bg-surface-container {
+  background-color: #1c2541 !important;
+}
+
+.dark .bg-surface-container-high {
+  background-color: #2a365c !important;
+}
+
+.dark .bg-surface-container-highest {
+  background-color: #354575 !important;
+}
+
+/* Icon & material symbol settings */
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 .glass-background {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
