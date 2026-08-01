@@ -1,6 +1,37 @@
 # LifeLine — Low-Level Design (LLD)
 
-## 1. MongoDB Schemas
+## 1. Relational PostgreSQL & MongoDB Schemas
+
+### 1.1 PostgreSQL Schema (Prisma ORM)
+```prisma
+model DonorReference {
+  id           String       @id @default(uuid())
+  mongoDonorId String       @unique @map("mongo_donor_id")
+  name         String
+  bloodGroup   String       @map("blood_group")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  auditEvents  AuditEvent[]
+
+  @@map("donors_reference")
+}
+
+model AuditEvent {
+  id        String          @id @default(uuid())
+  requestId String          @map("request_id")
+  action    String
+  actorId   String          @map("actor_id")
+  donorId   String?         @map("donor_id")
+  metadata  Json?
+  timestamp DateTime        @default(now())
+  donor     DonorReference? @relation(fields: [donorId], references: [id], onDelete: SetNull)
+
+  @@map("audit_events")
+}
+```
+**Foreign Key Relationship:** `audit_events.donor_id` ➔ `donors_reference.id` (`ON DELETE SET NULL`).
+
+### 1.2 MongoDB Schemas
 
 ```js
 User {
@@ -54,6 +85,7 @@ lock:donor:{donorId}  -> { requestId }                    TTL 15min
 | POST | `/api/v1/auth/logout` | Delete Redis session key |
 | POST | `/api/v1/requests` | Submit free-text emergency request (triggers AI parse) |
 | GET | `/api/v1/requests/:id/matches` | Get ranked donor matches + AI explanations |
+| GET | `/api/v1/requests/:id/audit-trail` | Get audit trail via Prisma SQL JOIN (`audit_events` JOIN `donors_reference`) |
 | POST | `/api/v1/requests/:id/reserve` | Acquire Redis lock on a donor |
 | POST | `/api/v1/requests/:id/confirm` | Donor confirms reservation |
 | POST | `/api/v1/requests/:id/decline` | Donor declines → releases lock, triggers escalation |
@@ -84,7 +116,34 @@ async function reserveDonor(requestId, donorId, ttlSeconds = 900) {
 ```
 **Why this is race-condition-safe:** Redis is single-threaded for command execution, so `SET ... NX` is atomic — if two requests race to reserve the same donor, only one `SET` succeeds; the other gets a falsy result and throws a conflict immediately, with no window for a double-booking. When the key expires (TTL) or is explicitly deleted on decline, the donor becomes reservable again automatically.
 
-## 5. Auth Flow Detail
+## 5. PostgreSQL Prisma SQL JOIN Query Sample
+
+```js
+// GET /api/v1/requests/:id/audit-trail
+async function getAuditTrailForRequest(requestId) {
+  const prisma = getPrisma();
+  
+  // Real SQL JOIN query: audit_events JOIN donors_reference ON audit_events.donor_id = donors_reference.id
+  const events = await prisma.auditEvent.findMany({
+    where: { requestId: requestId.toString() },
+    include: {
+      donor: {
+        select: {
+          id: true,
+          mongoDonorId: true,
+          name: true,
+          bloodGroup: true,
+        },
+      },
+    },
+    orderBy: { timestamp: 'asc' },
+  });
+  
+  return events;
+}
+```
+
+## 6. Auth Flow Detail
 
 ```js
 // Login
@@ -127,7 +186,7 @@ async function logout(sessionId) {
 }
 ```
 
-## 6. Escalation State Machine
+## 7. Escalation State Machine
 
 ```mermaid
 stateDiagram-v2
@@ -142,7 +201,7 @@ stateDiagram-v2
     expired --> [*]
 ```
 
-## 7. AI Layer Contract (OpenRouter)
+## 8. AI Layer Contract (OpenRouter)
 
 ```js
 async function parseEmergencyText(rawText) {
@@ -167,5 +226,5 @@ async function parseEmergencyText(rawText) {
 ```
 Wrapped in try/catch with a deterministic keyword-extraction fallback if the call fails or times out.
 
-## 8. Blood-Compatibility Logic
+## 9. Blood-Compatibility Logic
 Pure function `isCompatible(donorGroup, requestGroup)` implementing the standard donor→recipient compatibility table (e.g. O- is a universal donor, AB+ accepts all groups). Kept isolated and unit-tested — the easiest, highest-value test to show in the repo.

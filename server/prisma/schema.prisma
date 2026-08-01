@@ -1,0 +1,33 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model DonorReference {
+  id           String       @id @default(uuid())
+  mongoDonorId String       @unique @map("mongo_donor_id")
+  name         String
+  bloodGroup   String       @map("blood_group")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  auditEvents  AuditEvent[]
+
+  @@map("donors_reference")
+}
+
+model AuditEvent {
+  id        String          @id @default(uuid())
+  requestId String          @map("request_id")
+  action    String
+  actorId   String          @map("actor_id")
+  donorId   String?         @map("donor_id")
+  metadata  Json?
+  timestamp DateTime        @default(now())
+  donor     DonorReference? @relation(fields: [donorId], references: [id], onDelete: SetNull)
+
+  @@map("audit_events")
+}

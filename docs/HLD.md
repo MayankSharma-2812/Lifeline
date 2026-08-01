@@ -10,10 +10,12 @@ flowchart LR
     API --> MATCH[Matching Engine]
     API --> RES[Reservation Service - Redis Lock]
     API --> AI[AI Layer - OpenRouter]
+    API --> AUDIT[Audit & Reporting Service - Prisma ORM]
     AUTH --> REDIS[(Redis)]
     RES --> REDIS
-    MATCH --> DB[(MongoDB)]
+    MATCH --> DB[(MongoDB Atlas)]
     RES --> DB
+    AUDIT --> PG[(PostgreSQL - Neon)]
     API --> WS[Socket.io]
     WS --> U
     WS --> D
@@ -21,10 +23,12 @@ flowchart LR
 ```
 
 ## 2. Tech Stack
-- **Frontend:** React + Vite + TypeScript, Tailwind CSS, React Router, Socket.io-client, Axios, React Hook Form, Context/Zustand for global state.
-- **Backend:** Node.js + Express, Mongoose, Socket.io, jsonwebtoken, bcrypt, express-validator.
-- **Database:** MongoDB Atlas — `2dsphere` geospatial index on user locations.
-- **Sessions/Locking:** Redis (Upstash free tier or Render Redis add-on) — refresh-token session store *and* distributed reservation lock.
+- **Frontend:** React + Vite + TypeScript, Tailwind CSS, React Router DOM, Socket.io-client, Axios, Sonner, Motion.
+- **Backend:** Node.js + Express, Mongoose, Prisma ORM, Socket.io, jsonwebtoken, bcrypt, express-validator.
+- **Database (Polyglot Persistence):** 
+  - **MongoDB Atlas:** `2dsphere` geospatial index on user locations, write-heavy emergency intake & candidate matching.
+  - **PostgreSQL (Neon / Supabase):** Relational audit event logging & reporting via Prisma ORM (`audit_events` JOIN `donors_reference`).
+- **Sessions/Locking:** Upstash Redis — refresh-token session store *and* distributed reservation lock (`SET NX PX`).
 - **AI:** OpenRouter — single fetch-based wrapper, model swappable via env var, never a hard dependency for correctness.
 - **Testing:** Jest — unit tests on blood-compatibility logic and a concurrency test on the reservation lock.
 - **Deployment:** Frontend on Vercel, backend (+ Redis) on Render.
@@ -53,14 +57,18 @@ Two responsibilities: (1) parse free-text emergency descriptions into structured
 ### 3.6 Real-time Layer
 Socket.io rooms per request ID; both requester and matched donor join. Status transitions (matched → reserved → confirmed/expired/escalated) and session-revocation notices are pushed as events rather than polled.
 
+### 3.7 PostgreSQL Audit & Reporting Layer (Prisma ORM)
+Implements a dedicated relational audit trail in PostgreSQL alongside MongoDB. Writes audit events to `audit_events` linked via foreign key to `donors_reference`. Enables high-performance relational JOIN queries (`GET /api/v1/requests/:id/audit-trail`) joining audit events with donor reference details (`name` & `blood_group`).
+
 ## 4. Key Architectural Trade-offs (viva defense)
 | Decision | Choice | Alternative | Why |
 |---|---|---|---|
+| Database Architecture | Polyglot Persistence (MongoDB + PostgreSQL) | Single Database (Mongo or SQL only) | MongoDB handles 2DSphere spatial & write-heavy donor matching; PostgreSQL + Prisma handles relational audit logs and reporting JOINs |
 | Session revocation | Redis-backed refresh sessions | Long-lived JWT only | Instant revocation vs. no revocation until natural expiry |
 | Reservation lock | Redis `SET NX PX` | Mongo `findOneAndUpdate` + TTL index | True distributed lock primitive; the standard pattern for this exact problem |
 | Escalation trigger | Manual trigger + real TTL expiry | Background queue/scheduler | Realistic for solo/1-week scope; explicitly the first thing to upgrade at scale |
 | AI role | Advisory (parsing + explanation only) | AI makes the match decision | Keeps core correctness deterministic and testable |
-| Frontend framework | Plain React + Vite | Next.js | Stays strictly within the MERN constraint |
+| Frontend framework | Plain React + Vite + React Router | Next.js | Stays strictly within client-side SPA SPA architecture |
 
 ## 5. Scalability Notes
 - Matching queries → cache hot geospatial queries, add read replicas as volume grows.

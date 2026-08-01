@@ -4,6 +4,7 @@ const { authenticate }           = require('../middleware/auth');
 const EmergencyRequest           = require('../models/EmergencyRequest');
 const { parseEmergencyText, explainMatch } = require('../services/aiService');
 const { runMatchingForRequest }  = require('../services/matchingService');
+const { getAuditTrailForRequest } = require('../services/auditService');
 const {
   reserveDonor,
   confirmReservation,
@@ -75,6 +76,20 @@ router.get('/:id/matches', async (req, res, next) => {
       status: request.status,
       parsed,
       candidates: withExplanations,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── GET /api/v1/requests/:id/audit-trail ─────────────────────────
+// Demonstrates SQL JOIN query via Prisma ORM (audit_events JOIN donors_reference)
+router.get('/:id/audit-trail', async (req, res, next) => {
+  try {
+    const auditTrail = await getAuditTrailForRequest(req.params.id);
+    res.json({
+      requestId: req.params.id,
+      auditTrail,
     });
   } catch (err) {
     next(err);

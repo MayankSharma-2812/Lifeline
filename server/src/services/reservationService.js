@@ -1,9 +1,9 @@
 const { getRedis }        = require('../config/redis');
 const DonorProfile        = require('../models/DonorProfile');
 const EmergencyRequest    = require('../models/EmergencyRequest');
-const AuditLog            = require('../models/AuditLog');
 const { emitSocketEvent, emitToUser } = require('../socket');
 const { runMatchingForRequest } = require('./matchingService');
+const { recordAuditEvent }     = require('./auditService');
 
 const LOCK_TTL_SECONDS = 900; // 15 minutes — per LLD §2
 
@@ -46,11 +46,12 @@ async function reserveDonor(requestId, donorProfileId, actorUserId, ttl = LOCK_T
     currentLockKey: lockKey,
   });
 
-  await AuditLog.create({
+  await recordAuditEvent({
     requestId,
     action: 'reserve',
     actorId: actorUserId,
-    metadata: { donorProfileId, lockKey, ttlSeconds: ttl },
+    donorProfileId,
+    metadata: { lockKey, ttlSeconds: ttl },
   });
 
   // ── Push real-time event to the request room ─────────────────
@@ -101,11 +102,12 @@ async function confirmReservation(requestId, donorProfileId, actorUserId) {
     currentLockKey: null,
   });
 
-  await AuditLog.create({
+  await recordAuditEvent({
     requestId,
     action: 'confirm',
     actorId: actorUserId,
-    metadata: { donorProfileId },
+    donorProfileId,
+    metadata: {},
   });
 
   emitSocketEvent(requestId, 'confirmed', { donorProfileId });
@@ -147,11 +149,12 @@ async function declineAndEscalate(requestId, donorProfileId, outcome, actorUserI
     { new: true }
   );
 
-  await AuditLog.create({
+  await recordAuditEvent({
     requestId,
     action: 'escalate',
     actorId: actorUserId,
-    metadata: { donorProfileId, outcome, scoreAdjustment },
+    donorProfileId,
+    metadata: { outcome, scoreAdjustment },
   });
 
   emitSocketEvent(requestId, 'escalated', { donorProfileId, outcome });

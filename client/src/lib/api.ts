@@ -152,6 +152,21 @@ export async function getMatchesApi(requestId: string): Promise<{
   return res.data;
 }
 
+export async function getAuditTrailApi(requestId: string): Promise<{
+  requestId: string;
+  auditTrail: Array<{
+    id: string;
+    action: string;
+    actorId: string;
+    timestamp: string;
+    donor?: { id: string; mongoDonorId: string; name: string; bloodGroup: string } | null;
+    metadata?: any;
+  }>;
+}> {
+  const res = await api.get(`/requests/${requestId}/audit-trail`);
+  return res.data;
+}
+
 export async function reserveDonorApi(
   requestId: string,
   donorProfileId: string

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Candidate, EmergencyRequest, User } from './types';
@@ -13,15 +14,10 @@ import { ReservationStatusScreen } from './components/ReservationStatusScreen';
 import { DonorDashboardScreen } from './components/DonorDashboardScreen';
 import { AuditVerifyScreen } from './components/AuditVerifyScreen';
 
-export const App: React.FC = () => {
+function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [dark, setDark] = useState(false);
-
-  // App state flow for requesters
-  const [activeScreen, setActiveScreen] = useState<
-    'intake' | 'matches' | 'reservation' | 'dashboard' | 'verify'
-  >('intake');
 
   const [currentRequest, setCurrentRequest] = useState<{
     requestId: string;
@@ -34,13 +30,16 @@ export const App: React.FC = () => {
     lockKey: string;
   } | null>(null);
 
+  const navigate = useNavigate();
+
   // Initialize socket lifecycle
   useSocket();
 
-  // Handle remote session revocation — auto-dismissing toast (a) per spec
+  // Handle remote session revocation — auto-dismissing toast
   useSessionRevoked(() => {
     setUser(null);
     toast.error('Session revoked — logged out');
+    navigate('/login');
   });
 
   // Dark mode effect
@@ -59,17 +58,17 @@ export const App: React.FC = () => {
         const res = await refreshApi();
         if (res.accessToken) {
           const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
-          setUser({
+          const loggedUser: User = {
             _id: payload.userId,
             name: payload.name || 'User',
             email: payload.email || '',
             phone: payload.phone || '',
             role: payload.role || 'requester',
-          });
-          setActiveScreen(payload.role === 'donor' ? 'dashboard' : 'intake');
+          };
+          setUser(loggedUser);
         }
       } catch {
-        // No active session — present AuthScreen
+        // No active session
       } finally {
         setInitializing(false);
       }
@@ -79,7 +78,7 @@ export const App: React.FC = () => {
 
   const handleAuthSuccess = (u: User) => {
     setUser(u);
-    setActiveScreen(u.role === 'donor' ? 'dashboard' : 'intake');
+    navigate(u.role === 'donor' ? '/dashboard' : '/intake');
   };
 
   const handleLogout = async () => {
@@ -87,6 +86,7 @@ export const App: React.FC = () => {
     setUser(null);
     setCurrentRequest(null);
     setReservedDonor(null);
+    navigate('/login');
   };
 
   const handleRequestCreated = (data: {
@@ -95,12 +95,16 @@ export const App: React.FC = () => {
     candidates: Candidate[];
   }) => {
     setCurrentRequest(data);
-    setActiveScreen('matches');
+    navigate('/matches');
   };
 
   const handleDonorReserved = (donorProfileId: string, lockKey: string) => {
     setReservedDonor({ donorProfileId, lockKey });
-    setActiveScreen('reservation');
+    if (currentRequest) {
+      navigate(`/reservation/${currentRequest.requestId}`);
+    } else {
+      navigate('/intake');
+    }
   };
 
   if (initializing) {
@@ -125,61 +129,176 @@ export const App: React.FC = () => {
         onLogout={handleLogout}
         onNavigateHome={() => {
           if (user) {
-            setActiveScreen(user.role === 'donor' ? 'dashboard' : 'intake');
+            navigate(user.role === 'donor' ? '/dashboard' : '/intake');
+          } else {
+            navigate('/login');
           }
         }}
       />
 
       <main className="pt-24 pb-16 px-4 md:px-10 max-w-7xl mx-auto">
-        {!user ? (
-          <div className="flex items-center justify-center min-h-[calc(100vh-140px)]">
-            <AuthScreen onSuccess={handleAuthSuccess} />
-          </div>
-        ) : user.role === 'donor' ? (
-          <DonorDashboardScreen user={user} />
-        ) : (
-          <>
-            {activeScreen === 'intake' && (
-              <EmergencyFormScreen onSuccess={handleRequestCreated} />
-            )}
+        <Routes>
+          {/* Public Auth Route */}
+          <Route
+            path="/login"
+            element={
+              !user ? (
+                <div className="flex items-center justify-center min-h-[calc(100vh-140px)]">
+                  <AuthScreen onSuccess={handleAuthSuccess} />
+                </div>
+              ) : (
+                <Navigate to={user.role === 'donor' ? '/dashboard' : '/intake'} replace />
+              )
+            }
+          />
 
-            {activeScreen === 'matches' && currentRequest && (
-              <MatchingDonorScreen
-                requestId={currentRequest.requestId}
-                parsed={currentRequest.parsed}
-                candidates={currentRequest.candidates}
-                onDonorReserved={handleDonorReserved}
-                onNewRequest={() => setActiveScreen('intake')}
-              />
-            )}
+          {/* Protected Intake Route */}
+          <Route
+            path="/intake"
+            element={
+              user ? (
+                user.role === 'donor' ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <EmergencyFormScreen onSuccess={handleRequestCreated} />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
 
-            {activeScreen === 'reservation' && currentRequest && reservedDonor && (
-              <ReservationStatusScreen
-                requestId={currentRequest.requestId}
-                donorProfileId={reservedDonor.donorProfileId}
-                lockKey={reservedDonor.lockKey}
-                onDone={() => setActiveScreen('intake')}
-              />
-            )}
+          {/* Protected Matches Route */}
+          <Route
+            path="/matches"
+            element={
+              user ? (
+                currentRequest ? (
+                  <MatchingDonorScreen
+                    requestId={currentRequest.requestId}
+                    parsed={currentRequest.parsed}
+                    candidates={currentRequest.candidates}
+                    onDonorReserved={handleDonorReserved}
+                    onNewRequest={() => navigate('/intake')}
+                  />
+                ) : (
+                  <Navigate to="/intake" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
 
-            {activeScreen === 'verify' && currentRequest && (
-              <AuditVerifyScreen
-                requestId={currentRequest.requestId}
-                parsed={currentRequest.parsed}
-                selectedCandidate={
-                  reservedDonor
-                    ? currentRequest.candidates.find(
-                        (c) => c.donorProfileId === reservedDonor.donorProfileId
-                      )
-                    : null
-                }
-                onBack={() => setActiveScreen('matches')}
+          {/* Protected Reservation Route */}
+          <Route
+            path="/reservation/:id"
+            element={
+              <ReservationRouteWrapper
+                user={user}
+                currentRequest={currentRequest}
+                reservedDonor={reservedDonor}
+                onDone={() => navigate('/intake')}
               />
-            )}
-          </>
-        )}
+            }
+          />
+
+          {/* Protected Dashboard Route */}
+          <Route
+            path="/dashboard"
+            element={
+              user ? (
+                user.role === 'donor' ? (
+                  <DonorDashboardScreen user={user} />
+                ) : (
+                  <Navigate to="/intake" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+
+          {/* Protected Audit Verify Route */}
+          <Route
+            path="/verify"
+            element={
+              user ? (
+                currentRequest ? (
+                  <AuditVerifyScreen
+                    requestId={currentRequest.requestId}
+                    parsed={currentRequest.parsed}
+                    selectedCandidate={
+                      reservedDonor
+                        ? currentRequest.candidates.find(
+                            (c) => c.donorProfileId === reservedDonor.donorProfileId
+                          )
+                        : null
+                    }
+                    onBack={() => navigate('/matches')}
+                  />
+                ) : (
+                  <Navigate to="/intake" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+
+          {/* Default Fallback Redirect */}
+          <Route
+            path="*"
+            element={
+              <Navigate
+                to={user ? (user.role === 'donor' ? '/dashboard' : '/intake') : '/login'}
+                replace
+              />
+            }
+          />
+        </Routes>
       </main>
     </div>
+  );
+}
+
+function ReservationRouteWrapper({
+  user,
+  currentRequest,
+  reservedDonor,
+  onDone,
+}: {
+  user: User | null;
+  currentRequest: { requestId: string; parsed: EmergencyRequest['parsed']; candidates: Candidate[] } | null;
+  reservedDonor: { donorProfileId: string; lockKey: string } | null;
+  onDone: () => void;
+}) {
+  const { id } = useParams<{ id: string }>();
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  const requestId = id || currentRequest?.requestId;
+  const donorProfileId = reservedDonor?.donorProfileId || currentRequest?.candidates[0]?.donorProfileId;
+
+  if (!requestId || !donorProfileId) {
+    return <Navigate to="/intake" replace />;
+  }
+
+  return (
+    <ReservationStatusScreen
+      requestId={requestId}
+      donorProfileId={donorProfileId}
+      lockKey={reservedDonor?.lockKey}
+      onDone={onDone}
+    />
+  );
+}
+
+export const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 };
 

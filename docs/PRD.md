@@ -21,7 +21,7 @@ Build a hyperlocal network where a **Requester** describes an emergency in plain
 6. As a user, I can log in/out securely, and revoke my own sessions from other devices if needed.
 
 ## 5. MVP Scope (1 week, solo build)
-**In scope:** Blood-donor matching only. Auth (signup/login, access + refresh tokens, Redis-backed sessions). AI intake parsing + match explanation. Redis-based atomic reservation locking. Real-time status via Socket.io. Simplified escalation (manual "simulate no-response" trigger rather than a background scheduler).
+**In scope:** Blood-donor matching only. Auth (signup/login, access + refresh tokens, Redis-backed sessions). AI intake parsing + match explanation. Redis-based atomic reservation locking. Real-time status via Socket.io. Simplified escalation (manual "simulate no-response" trigger rather than a background scheduler). Polyglot persistence (MongoDB geospatial matching + PostgreSQL Prisma audit trails).
 
 **Explicitly out of scope for MVP, documented as Future Work:** Pharmacy/medicine inventory matching, SMS/push notification escalation, payments, ambulance/logistics routing, native mobile app, multi-region scaling, reliability-score nuance beyond a basic counter.
 
@@ -31,10 +31,11 @@ Build a hyperlocal network where a **Requester** describes an emergency in plain
 - Escalation correctly reassigns after a simulated non-response.
 - A session revoked from one device is immediately dead on all others.
 
-## 7. Tech Constraint
-MERN (MongoDB, Express, React, Node.js) with plain React + Vite (not Next.js) for the frontend, plus Redis for sessions and distributed locking, and OpenRouter for the AI layer (model-agnostic, swappable via env var).
+## 7. Tech Constraint & Polyglot Persistence
+MERN (MongoDB, Express, React, Node.js) with plain React + Vite + React Router DOM for the frontend, Redis for sessions and distributed locking, OpenRouter for the AI layer, and PostgreSQL (via Prisma ORM) alongside MongoDB for relational audit trails and reporting JOINs (deliberate polyglot persistence).
 
 ## 8. Why This Isn't "Just Another CRUD App"
+- Polyglot database architecture (MongoDB geospatial matching + PostgreSQL relational audit JOINs).
 - Redis-based distributed reservation locking (`SET NX PX`), race-condition-safe under concurrent load.
 - Priority-ranked, auto-escalating matching flow, not a static list.
 - Proper auth: short-lived JWT access tokens + Redis-backed refresh sessions with instant revocation — not just "a JWT that lasts forever."
