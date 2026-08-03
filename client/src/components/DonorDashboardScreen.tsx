@@ -1,3 +1,7 @@
+/**
+ * @module DonorDashboardScreen.tsx
+ * @description Serves as the primary operational view for registered donors, handling profile toggles and incoming reservation requests.
+ */
 import React, { useEffect, useState } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import { ShieldCheck, Droplets, Radio, Siren, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -5,10 +9,14 @@ import { DonorProfile, User } from '../types';
 import { getMyDonorProfileApi, toggleDonorAvailabilityApi, confirmReservationApi, declineReservationApi } from '../lib/api';
 import { useDonorNotifications } from '../hooks/useDonorNotifications';
 
-interface DonorDashboardScreenProps {
+export interface DonorDashboardScreenProps {
   user: User;
 }
 
+/**
+ * Manages donor profile status and processes live reservation events.
+ * Displays real-time alerts if a requester issues a lock on this donor.
+ */
 export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user }) => {
   const [profile, setProfile] = useState<DonorProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,12 +30,14 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
     expiresInSeconds: number;
   } | null>(null);
 
+  // Hook into the user's private socket room to receive immediate reservation payloads
   const { incoming, dismiss } = useDonorNotifications();
 
   useEffect(() => {
     fetchProfile();
   }, []);
 
+  /** Fetches current profile state and any active reservation from the backend. */
   const fetchProfile = async () => {
     setLoading(true);
     setError(null);
@@ -44,8 +54,10 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
     }
   };
 
+  // Combine real-time socket events with initial load data to determine active alert state
   const activeAlert = incoming || initialReservation;
 
+  /** Toggles the donor's broad availability metric in the backend. */
   const handleToggle = async () => {
     if (!profile) return;
     setToggling(true);
@@ -68,6 +80,7 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
     }
   };
 
+  /** Confirms the active reservation, agreeing to supply the blood request. */
   const handleAcceptIncoming = async () => {
     if (!activeAlert || !profile) return;
     setActionMsg(null);
@@ -82,6 +95,7 @@ export const DonorDashboardScreen: React.FC<DonorDashboardScreenProps> = ({ user
     }
   };
 
+  /** Declines the active reservation, forcing the system to escalate to the next candidate. */
   const handleDeclineIncoming = async () => {
     if (!activeAlert || !profile) return;
     setActionMsg(null);

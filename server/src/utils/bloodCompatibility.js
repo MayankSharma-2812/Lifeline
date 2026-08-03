@@ -1,14 +1,19 @@
 /**
- * Blood-group compatibility: isCompatible(donorGroup, recipientGroup)
- *
- * Standard donor→recipient compatibility table.
- * Source: https://www.redcrossblood.org/donate-blood/blood-types.html
- *
- * O-  → universal donor (all recipients)
- * AB+ → universal recipient (accepts all donors)
+ * @file bloodCompatibility.js
+ * @description Utility for checking blood group compatibility between donors and recipients.
  */
 
-/** @type {Record<string, string[]>} donor group → list of groups it can donate to */
+/**
+ * Blood-group compatibility: isCompatible(donorGroup, recipientGroup)
+ *
+ * Standard donor to recipient compatibility table.
+ * Source: https://www.redcrossblood.org/donate-blood/blood-types.html
+ *
+ * O- is the universal donor (all recipients).
+ * AB+ is the universal recipient (accepts all donors).
+ */
+
+/** @type {Record<string, string[]>} donor group mapped to list of groups it can donate to */
 const COMPATIBILITY = {
   "O-":  ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"],
   "O+":  ["O+", "A+", "B+", "AB+"],

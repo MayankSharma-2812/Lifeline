@@ -1,3 +1,7 @@
+/**
+ * @file reservationService.js
+ * @description Handles the atomic reservation of donors using Redis distributed locks to prevent double-booking.
+ */
 const { getRedis }        = require('../config/redis');
 const DonorProfile        = require('../models/DonorProfile');
 const EmergencyRequest    = require('../models/EmergencyRequest');
@@ -8,24 +12,21 @@ const { recordAuditEvent }     = require('./auditService');
 const LOCK_TTL_SECONDS = 900; // 15 minutes — per LLD §2
 
 /**
- * reserveDonor — per LLD §4, the core showcase of this system.
+ * Reserves a donor atomically using a Redis distributed lock (SET NX PX).
+ * Ensures double-booking is structurally impossible. Implementation based on LLD section 4.
  *
- * Uses Redis SET key value NX PX <ttl>:
- *   - NX (set if Not eXists) is an atomic read-then-write in a single Redis command.
- *   - Redis is single-threaded for command execution, so two concurrent callers
- *     CANNOT both get 'OK' — only one SET wins; the other gets null immediately.
- *   - This makes double-booking structurally impossible, not just unlikely.
- *
- * @param {string} requestId
- * @param {string} donorProfileId
- * @param {string} actorUserId      The requester triggering the reservation
- * @param {number} [ttl]            Lock TTL in seconds (default 15 min)
+ * @param {string} requestId - The ID of the associated emergency request.
+ * @param {string} donorProfileId - The ID of the donor profile to reserve.
+ * @param {string} actorUserId - The ID of the user triggering the reservation.
+ * @param {number} [ttl=900] - Lock Time-To-Live in seconds (default 15 minutes).
+ * @returns {Promise<{ lockKey: string, donorProfileId: string }>} Result containing lock details.
+ * @throws {Error} If the donor is already reserved by another request.
  */
 async function reserveDonor(requestId, donorProfileId, actorUserId, ttl = LOCK_TTL_SECONDS) {
   const lockKey = `lock:donor:${donorProfileId}`;
   const redis   = getRedis();
 
-  // ── The atomic lock acquisition ──────────────────────────────
+  // The atomic lock acquisition
   // SET lockKey requestId NX PX <ttl_ms>
   // Returns 'OK' if acquired, null if key already exists (already reserved).
   const acquired = await redis.set(lockKey, requestId.toString(), {
@@ -39,7 +40,7 @@ async function reserveDonor(requestId, donorProfileId, actorUserId, ttl = LOCK_T
     throw err;
   }
 
-  // ── Persist the reservation state ───────────────────────────
+  // Persist the reservation state
   await DonorProfile.findByIdAndUpdate(donorProfileId, { status: 'reserved' });
   await EmergencyRequest.findByIdAndUpdate(requestId, {
     status: 'reserved',
@@ -54,10 +55,10 @@ async function reserveDonor(requestId, donorProfileId, actorUserId, ttl = LOCK_T
     metadata: { lockKey, ttlSeconds: ttl },
   });
 
-  // ── Push real-time event to the request room ─────────────────
+  // Push real-time event to the request room
   emitSocketEvent(requestId, 'reserved', { donorProfileId, expiresInSeconds: ttl });
 
-  // ── Also notify the donor directly on their personal room ─────
+  // Also notify the donor directly on their personal room
   // The donor may not have joined the request room yet — this ensures
   // they see the incoming reservation notification on their dashboard.
   const donorDoc = await DonorProfile.findById(donorProfileId).select('userId');
@@ -73,8 +74,14 @@ async function reserveDonor(requestId, donorProfileId, actorUserId, ttl = LOCK_T
 }
 
 /**
- * confirmReservation — donor accepts the request.
- * Releases lock, marks donor on_cooldown (+2 reliability), sets status confirmed.
+ * Confirms a donor's reservation.
+ * Releases the lock, applies reliability score bonus, and marks the donor as on cooldown.
+ *
+ * @param {string} requestId - The emergency request ID.
+ * @param {string} donorProfileId - The confirmed donor profile ID.
+ * @param {string} actorUserId - The user ID of the confirming donor.
+ * @returns {Promise<void>}
+ * @throws {Error} If the lock expired or is not held by this request.
  */
 async function confirmReservation(requestId, donorProfileId, actorUserId) {
   const redis   = getRedis();
@@ -114,15 +121,15 @@ async function confirmReservation(requestId, donorProfileId, actorUserId) {
 }
 
 /**
- * declineAndEscalate — donor declines OR TTL expiry is simulated.
+ * Handles donor declines or reservation expiry, initiating the escalation flow.
+ * Releases the lock, applies reliability penalties if applicable, and attempts to match the next candidate.
+ * Follows the escalation state machine defined in LLD section 6.
  *
- * Escalation state machine (LLD §6):
- *   reserved → escalated → matched (next candidate) | expired (no candidates)
- *
- * @param {string} requestId
- * @param {string} donorProfileId   The donor who declined / didn't respond
- * @param {'declined'|'no_response'} outcome
- * @param {string} actorUserId
+ * @param {string} requestId - The emergency request ID.
+ * @param {string} donorProfileId - The donor profile ID that declined or timed out.
+ * @param {'declined'|'no_response'} outcome - The reason for escalation.
+ * @param {string} actorUserId - The user ID triggering the escalation.
+ * @returns {Promise<{ nextCandidate: Object|null }>} The next matched candidate, if any.
  */
 async function declineAndEscalate(requestId, donorProfileId, outcome, actorUserId) {
   const redis   = getRedis();
@@ -159,7 +166,7 @@ async function declineAndEscalate(requestId, donorProfileId, outcome, actorUserI
 
   emitSocketEvent(requestId, 'escalated', { donorProfileId, outcome });
 
-  // ── Find next candidate (excluding already-tried donors) ─────
+  // Find next candidate (excluding already-tried donors)
   const triedIds = updatedRequest.escalationHistory.map((h) => h.donorId.toString());
 
   const { candidates } = await runMatchingForRequest(requestId, triedIds);

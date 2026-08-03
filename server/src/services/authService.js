@@ -1,3 +1,7 @@
+/**
+ * @file authService.js
+ * @description Authentication service. Handles user registration, login, session management using Redis, and token generation.
+ */
 const crypto       = require('crypto');
 const bcrypt       = require('bcrypt');
 const jwt          = require('jsonwebtoken');
@@ -9,23 +13,41 @@ const BCRYPT_ROUNDS    = 10;
 const ACCESS_TOKEN_TTL = '15m';
 const SESSION_TTL_SEC  = 7 * 24 * 60 * 60; // 7 days
 
-// ── Helpers ──────────────────────────────────────────────────────
+// Helpers
 
-function sessionKey(sessionId) {
+/**
+ * Generates the Redis key for a given session ID.
+ * @param {string} sessionId - The session identifier.
+ * @returns {string} The formatted Redis key.
+ */function sessionKey(sessionId) {
   return `session:${sessionId}`;
 }
 
+/**
+ * Generates a JSON Web Token for the given user ID.
+ * @param {string|mongoose.Types.ObjectId} userId - The user's ID.
+ * @returns {string} The signed JWT access token.
+ */
 function makeAccessToken(userId) {
   return jwt.sign({ userId: userId.toString() }, process.env.JWT_SECRET, {
     expiresIn: ACCESS_TOKEN_TTL,
   });
 }
 
-// ── Public API ───────────────────────────────────────────────────
+// Public API
 
 /**
- * Signup — per LLD §1 (User schema) and app flow.
- * Returns { accessToken, sessionId, refreshToken } — caller sets the cookie.
+ * Registers a new user and automatically creates a DonorProfile if role is donor.
+ * Implements logic as per LLD section 1 (User schema) and application flow.
+ *
+ * @param {Object} params - The user registration data.
+ * @param {string} params.name - User's full name.
+ * @param {string} params.phone - User's phone number.
+ * @param {string} params.email - User's email address.
+ * @param {string} params.password - Plain text password.
+ * @param {string} params.role - Role, either 'requester' or 'donor'.
+ * @param {Object} [params.location] - Optional location {lng, lat}.
+ * @returns {Promise<Object>} Contains accessToken, sessionId, refreshToken, and user details.
  */
 async function signup({ name, phone, email, password, role, location }) {
   const existing = await User.findOne({ email });
@@ -61,7 +83,11 @@ async function signup({ name, phone, email, password, role, location }) {
 }
 
 /**
- * Login — per LLD §5. Supports lookup by email or phone.
+ * Authenticates a user by email or phone. Supports LLD section 5.
+ *
+ * @param {string} identifier - The user's email or phone number.
+ * @param {string} password - The plain text password.
+ * @returns {Promise<Object>} Contains accessToken, sessionId, refreshToken, and user details.
  */
 async function login(identifier, password) {
   if (!identifier) {
@@ -83,8 +109,13 @@ async function login(identifier, password) {
 }
 
 /**
- * Refresh — per LLD §5 exactly.
+ * Refreshes an active session by rotating tokens.
  * Validates session in Redis, rotates refresh token, issues new access token.
+ * Matches LLD section 5 exactly.
+ *
+ * @param {string} sessionId - The current session identifier.
+ * @param {string} refreshToken - The current refresh token.
+ * @returns {Promise<Object>} Contains newAccessToken and newRefreshToken.
  */
 async function refresh(sessionId, refreshToken) {
   const redis = getRedis();
@@ -120,8 +151,11 @@ async function refresh(sessionId, refreshToken) {
 }
 
 /**
- * Logout — per LLD §5. Deletes the Redis session key; cookie becomes instantly dead.
- * Returns the userId so the caller can emit a 'session-revoked' Socket.io event.
+ * Terminates a session by deleting it from Redis. The session cookie becomes instantly invalid.
+ * Implements logic per LLD section 5.
+ *
+ * @param {string} sessionId - The session identifier to revoke.
+ * @returns {Promise<string|null>} The user ID associated with the revoked session, or null if not found.
  */
 async function logout(sessionId) {
   if (!sessionId) return null;
@@ -131,7 +165,7 @@ async function logout(sessionId) {
   return session?.userId ?? null;
 }
 
-// ── Internal ─────────────────────────────────────────────────────
+// Internal
 
 async function _createSession(user) {
   const accessToken  = makeAccessToken(user._id);

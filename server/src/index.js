@@ -1,3 +1,7 @@
+/**
+ * @file index.js
+ * @description Application entry point. Initializes database connections, sets up the HTTP server, and mounts the WebSocket instance for LifeLine.
+ */
 require("dotenv").config();
 const app = require("./app");
 const { connectDB } = require("./config/db");

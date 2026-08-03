@@ -1,3 +1,7 @@
+/**
+ * @file socket.js
+ * @description WebSocket configuration using Socket.io. Handles real-time events for reservations, confirmations, and session management.
+ */
 const { Server } = require('socket.io');
 const jwt        = require('jsonwebtoken');
 
@@ -5,6 +9,13 @@ let io;
 
 const { corsOriginHandler } = require('./utils/corsOrigin');
 
+/**
+ * Initializes the Socket.io server and attaches it to the provided HTTP server.
+ * Sets up authentication middleware and room-joining logic.
+ *
+ * @param {import('http').Server} httpServer - The Node.js HTTP server instance.
+ * @returns {Server} The configured Socket.io Server instance.
+ */
 function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
@@ -13,7 +24,7 @@ function initSocket(httpServer) {
     },
   });
 
-  // ── Auth middleware — verify access token on every connection ──
+  // Auth middleware: verify access token on every connection
   // Client must pass { auth: { token: accessToken } } when creating the socket.
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
@@ -54,11 +65,14 @@ function initSocket(httpServer) {
   return io;
 }
 
-// ── Emit helpers (used by reservation / auth services) ───────────
+// Emit helpers (used by reservation / auth services)
 
 /**
- * Broadcast a status event to everyone in a request's room.
- * Both the requester and the matched donor should be in this room.
+ * Broadcasts a status event to all clients in a specific request's room.
+ *
+ * @param {string} requestId - The ID of the emergency request.
+ * @param {string} event - The event name to emit.
+ * @param {Object} [payload={}] - The event data payload.
  */
 function emitSocketEvent(requestId, event, payload = {}) {
   if (!io) return; // no-op in unit tests
@@ -66,14 +80,23 @@ function emitSocketEvent(requestId, event, payload = {}) {
 }
 
 /**
- * Send an event to a specific user's personal room.
- * Used for: session-revoked, incoming reservation notifications.
+ * Sends an event to a specific user's personal room.
+ * Used for session-revoked and incoming reservation notifications.
+ *
+ * @param {string} userId - The user ID to target.
+ * @param {string} event - The event name to emit.
+ * @param {Object} [payload={}] - The event data payload.
  */
 function emitToUser(userId, event, payload = {}) {
   if (!io) return;
   io.to(`user:${userId}`).emit(event, payload);
 }
 
+/**
+ * Retrieves the currently initialized Socket.io Server instance.
+ *
+ * @returns {Server} The Socket.io Server instance.
+ */
 function getIO() {
   return io;
 }

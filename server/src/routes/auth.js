@@ -1,3 +1,7 @@
+/**
+ * @file auth.js
+ * @description Express routes for authentication. Provides endpoints for signup, login, session refresh, and logout.
+ */
 const { Router }                 = require('express');
 const { body, validationResult } = require('express-validator');
 const authService                = require('../services/authService');
@@ -6,7 +10,7 @@ const { emitToUser }             = require('../socket');
 
 const router = Router();
 
-// ── Cookie config ────────────────────────────────────────────────
+// Cookie config
 // refreshToken and sessionId are packed into a single httpOnly cookie.
 // Format: "<sessionId>:<refreshToken>"
 // Secure flag is only set in production (localhost doesn't send secure cookies).
@@ -14,6 +18,12 @@ const router = Router();
 const COOKIE_NAME    = 'refresh_session';
 const COOKIE_TTL_MS  = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+/**
+ * Sets the HTTP-only refresh session cookie.
+ * @param {import('express').Response} res - Express response object.
+ * @param {string} sessionId - The session identifier.
+ * @param {string} refreshToken - The refresh token string.
+ */
 function setRefreshCookie(res, sessionId, refreshToken) {
   res.cookie(COOKIE_NAME, `${sessionId}:${refreshToken}`, {
     httpOnly: true,
@@ -23,10 +33,19 @@ function setRefreshCookie(res, sessionId, refreshToken) {
   });
 }
 
+/**
+ * Clears the refresh session cookie.
+ * @param {import('express').Response} res - Express response object.
+ */
 function clearRefreshCookie(res) {
   res.clearCookie(COOKIE_NAME);
 }
 
+/**
+ * Parses the refresh session cookie into session ID and refresh token.
+ * @param {import('express').Request} req - Express request object.
+ * @returns {{ sessionId: string, refreshToken: string }|null} Parsed cookie data or null if invalid/missing.
+ */
 function parseRefreshCookie(req) {
   const raw = req.cookies?.[COOKIE_NAME];
   if (!raw) return null;
@@ -35,7 +54,7 @@ function parseRefreshCookie(req) {
   return { sessionId: raw.slice(0, idx), refreshToken: raw.slice(idx + 1) };
 }
 
-// ── POST /api/v1/auth/signup ─────────────────────────────────────
+// POST /api/v1/auth/signup
 router.post(
   '/signup',
   [
@@ -64,7 +83,7 @@ router.post(
   }
 );
 
-// ── POST /api/v1/auth/login ──────────────────────────────────────
+// POST /api/v1/auth/login
 router.post(
   '/login',
   [
@@ -88,7 +107,7 @@ router.post(
   }
 );
 
-// ── POST /api/v1/auth/refresh ────────────────────────────────────
+// POST /api/v1/auth/refresh
 // Reads the httpOnly cookie, validates the Redis session, rotates the token.
 router.post('/refresh', async (req, res, next) => {
   const parsed = parseRefreshCookie(req);
@@ -107,7 +126,7 @@ router.post('/refresh', async (req, res, next) => {
   }
 });
 
-// ── POST /api/v1/auth/logout ─────────────────────────────────────
+// POST /api/v1/auth/logout
 // Deletes the Redis session — makes the cookie instantly dead on all devices.
 // Broadcasts 'session-revoked' to the user's personal socket room so any other
 // open tab/device shows the toast immediately without waiting for a 401.
@@ -124,7 +143,7 @@ router.post('/logout', authenticate, async (req, res, next) => {
   }
 });
 
-// ── GET /api/v1/auth/me ──────────────────────────────────────────
+// GET /api/v1/auth/me
 // Convenience endpoint — lets the client bootstrap user state after a page refresh.
 const User = require('../models/User');
 router.get('/me', authenticate, async (req, res, next) => {

@@ -1,10 +1,14 @@
+/**
+ * @file donors.js
+ * @description Express routes for donor management. Provides endpoints for updating donor availability and fetching current status.
+ */
 const { Router }  = require('express');
 const { authenticate } = require('../middleware/auth');
 const DonorProfile = require('../models/DonorProfile');
 
 const router = Router();
 
-// ── POST /api/v1/donors/:id/availability ────────────────────────
+// POST /api/v1/donors/:id/availability
 // Toggle a donor's availability. :id is the DonorProfile _id.
 // Only the donor who owns the profile can toggle it.
 router.post('/:id/availability', authenticate, async (req, res, next) => {
@@ -38,7 +42,7 @@ router.post('/:id/availability', authenticate, async (req, res, next) => {
 const EmergencyRequest = require('../models/EmergencyRequest');
 const { getRedis }       = require('../config/redis');
 
-// ── GET /api/v1/donors/me ────────────────────────────────────────
+// GET /api/v1/donors/me
 // Return the current user's DonorProfile and activeReservation if reserved
 router.get('/me', authenticate, async (req, res, next) => {
   try {

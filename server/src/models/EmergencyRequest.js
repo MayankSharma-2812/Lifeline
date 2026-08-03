@@ -1,8 +1,12 @@
+/**
+ * @file EmergencyRequest.js
+ * @description Mongoose schema for the EmergencyRequest model. Tracks the lifecycle of a blood request from creation to resolution.
+ */
 const mongoose = require('mongoose');
 
 /**
- * EmergencyRequest — per LLD §1.
- * Tracks the full lifecycle: pending → matched → reserved → confirmed/expired/escalated.
+ * EmergencyRequest schema as per LLD section 1.
+ * Tracks the full lifecycle: pending to matched to reserved to confirmed, expired, or escalated.
  */
 const emergencyRequestSchema = new mongoose.Schema(
   {

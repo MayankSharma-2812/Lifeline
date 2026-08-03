@@ -1,8 +1,17 @@
+/**
+ * @file auth.js
+ * @description Authentication middleware. Verifies JSON Web Tokens (JWT) to secure API endpoints.
+ */
 const jwt = require('jsonwebtoken');
 
 /**
- * authenticate — verifies the Bearer access token in the Authorization header.
- * Sets req.userId on success. Used by all protected route handlers.
+ * Verifies the Bearer access token provided in the Authorization header.
+ * Sets req.userId on successful verification. Used by all protected route handlers.
+ *
+ * @param {import('express').Request} req - The Express request object.
+ * @param {import('express').Response} res - The Express response object.
+ * @param {import('express').NextFunction} next - The Express next middleware function.
+ * @returns {void|import('express').Response} Returns a 401 response if authentication fails, otherwise calls next().
  */
 function authenticate(req, res, next) {
   const auth = req.headers.authorization;

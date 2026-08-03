@@ -1,10 +1,22 @@
+/**
+ * @file auditService.js
+ * @description Polyglot audit logging service. Writes significant system actions to PostgreSQL via Prisma, falling back to MongoDB.
+ */
 const { getPrisma } = require('../config/prisma');
 const AuditLog = require('../models/AuditLog');
 const DonorProfile = require('../models/DonorProfile');
 
 /**
- * recordAuditEvent — Writes audit events to PostgreSQL (donors_reference & audit_events).
- * Falls back safely to Mongo AuditLog if Postgres DB is unconfigured or unavailable.
+ * Records an audit event across configured datastores.
+ * Primary write is to MongoDB for backward compatibility, with secondary writes to PostgreSQL.
+ *
+ * @param {Object} params - The audit event data.
+ * @param {string} params.requestId - Associated emergency request ID.
+ * @param {string} params.action - Action taken (e.g., reserve, confirm).
+ * @param {string} params.actorId - ID of the user performing the action.
+ * @param {string} [params.donorProfileId] - Optional associated donor ID.
+ * @param {Object} [params.metadata] - Additional contextual data.
+ * @returns {Promise<void>}
  */
 async function recordAuditEvent({ requestId, action, actorId, donorProfileId, metadata }) {
   // Always record in Mongo for backward compatibility / backup
@@ -67,8 +79,11 @@ async function recordAuditEvent({ requestId, action, actorId, donorProfileId, me
 }
 
 /**
- * getAuditTrailForRequest — Demonstrates real SQL JOIN query via Prisma ORM.
- * Joins audit_events with donors_reference to include donor name & blood_group.
+ * Retrieves the complete audit trail for a specific request.
+ * Attempts to use the relational data structure in PostgreSQL if available, otherwise falls back to MongoDB.
+ *
+ * @param {string} requestId - The request ID to fetch logs for.
+ * @returns {Promise<Array>} List of audit events sorted by timestamp ascending.
  */
 async function getAuditTrailForRequest(requestId) {
   if (process.env.DATABASE_URL) {

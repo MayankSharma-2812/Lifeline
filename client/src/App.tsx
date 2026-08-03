@@ -1,3 +1,7 @@
+/**
+ * @module App.tsx
+ * @description Main application routing component. Handles authentication state, theme preferences, and top-level routing logic.
+ */
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
@@ -14,6 +18,12 @@ import { ReservationStatusScreen } from './components/ReservationStatusScreen';
 import { DonorDashboardScreen } from './components/DonorDashboardScreen';
 import { AuditVerifyScreen } from './components/AuditVerifyScreen';
 
+/**
+ * Inner application content component.
+ * Manages the core state variables (user, currentRequest, reservedDonor) and provides the main routing structure.
+ *
+ * @returns React component wrapping the application layout and routes.
+ */
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
@@ -32,17 +42,18 @@ function AppContent() {
 
   const navigate = useNavigate();
 
-  // Initialize socket lifecycle
+  // Initialize and manage the global socket lifecycle
   useSocket();
 
-  // Handle remote session revocation — auto-dismissing toast
+  // Handle remote session revocation
+  // When triggered by the server, this resets the user state and redirects to login.
   useSessionRevoked(() => {
     setUser(null);
     toast.error('Session revoked — logged out');
     navigate('/login');
   });
 
-  // Dark mode effect
+  // Apply dark mode class to the document element based on state
   useEffect(() => {
     if (dark) {
       document.documentElement.classList.add('dark');
@@ -51,12 +62,13 @@ function AppContent() {
     }
   }, [dark]);
 
-  // Check initial session via silent refresh
+  // Attempt to restore the user session implicitly upon initial load
   useEffect(() => {
     async function initAuth() {
       try {
         const res = await refreshApi();
         if (res.accessToken) {
+          // Decode the JWT payload to reconstruct the basic user object
           const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
           const loggedUser: User = {
             _id: payload.userId,
@@ -68,7 +80,7 @@ function AppContent() {
           setUser(loggedUser);
         }
       } catch {
-        // No active session
+        // Suppress errors to allow normal unauthenticated flow
       } finally {
         setInitializing(false);
       }
@@ -76,11 +88,19 @@ function AppContent() {
     initAuth();
   }, []);
 
+  /**
+   * Handles successful authentication by updating state and navigating based on role.
+   *
+   * @param u - The authenticated user object.
+   */
   const handleAuthSuccess = (u: User) => {
     setUser(u);
     navigate(u.role === 'donor' ? '/dashboard' : '/intake');
   };
 
+  /**
+   * Clears session state and redirects to the login view.
+   */
   const handleLogout = async () => {
     await logoutApi();
     setUser(null);
@@ -89,6 +109,11 @@ function AppContent() {
     navigate('/login');
   };
 
+  /**
+   * Handles successful creation of an emergency request.
+   *
+   * @param data - The new request and initial candidate matches.
+   */
   const handleRequestCreated = (data: {
     requestId: string;
     parsed: EmergencyRequest['parsed'];
@@ -98,6 +123,12 @@ function AppContent() {
     navigate('/matches');
   };
 
+  /**
+   * Handles successful donor reservation.
+   *
+   * @param donorProfileId - The ID of the reserved donor profile.
+   * @param lockKey - The concurrency lock key for the reservation.
+   */
   const handleDonorReserved = (donorProfileId: string, lockKey: string) => {
     setReservedDonor({ donorProfileId, lockKey });
     if (currentRequest) {
@@ -262,6 +293,10 @@ function AppContent() {
   );
 }
 
+/**
+ * Helper component that bridges URL parameters to the ReservationStatusScreen props.
+ * Prevents invalid states by verifying required contextual data before rendering.
+ */
 function ReservationRouteWrapper({
   user,
   currentRequest,
@@ -294,6 +329,9 @@ function ReservationRouteWrapper({
   );
 }
 
+/**
+ * The main application component, mounting the React Router context.
+ */
 export const App: React.FC = () => {
   return (
     <BrowserRouter>

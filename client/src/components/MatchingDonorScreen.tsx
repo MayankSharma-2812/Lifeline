@@ -1,17 +1,26 @@
+/**
+ * @module MatchingDonorScreen.tsx
+ * @description Renders a sorted list of compatible donor candidates and provides the interface to acquire a concurrency lock on a specific donor.
+ */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, MapPin, ShieldCheck, Lock, Sparkles, SearchX, Award, RotateCcw } from 'lucide-react';
 import { Candidate, EmergencyRequest } from '../types';
 import { reserveDonorApi } from '../lib/api';
 
-interface MatchingDonorScreenProps {
+export interface MatchingDonorScreenProps {
   requestId: string;
   parsed: EmergencyRequest['parsed'];
   candidates: Candidate[];
+  /** Callback fired when a reservation lock is successfully acquired on a candidate. */
   onDonorReserved: (donorProfileId: string, lockKey: string) => void;
   onNewRequest: () => void;
 }
 
+/**
+ * Displays candidate donors matched via the $geoNear pipeline.
+ * Manages the UI state during the Redis SET NX lock acquisition process.
+ */
 export const MatchingDonorScreen: React.FC<MatchingDonorScreenProps> = ({
   requestId,
   parsed,
@@ -19,9 +28,15 @@ export const MatchingDonorScreen: React.FC<MatchingDonorScreenProps> = ({
   onDonorReserved,
   onNewRequest,
 }) => {
+  // Track which donor ID is currently undergoing the reservation API call to prevent parallel submissions
   const [reservingId, setReservingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Attempts to lock a candidate via the backend.
+   *
+   * @param donorProfileId - The ID of the candidate to lock.
+   */
   const handleReserve = async (donorProfileId: string) => {
     setError(null);
     setReservingId(donorProfileId);
@@ -102,7 +117,7 @@ export const MatchingDonorScreen: React.FC<MatchingDonorScreenProps> = ({
         </div>
 
         {candidates.length === 0 ? (
-          /* Minimal single-color empty-state matching crimson accent per spec */
+          /* Minimal empty-state layout */
           <div className="p-12 text-center bg-white dark:bg-on-background rounded-xl border border-outline-variant space-y-3">
             <div className="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center mx-auto text-primary">
               <SearchX className="w-6 h-6" />
@@ -118,7 +133,7 @@ export const MatchingDonorScreen: React.FC<MatchingDonorScreenProps> = ({
               {candidates.map((c, index) => {
                 const km = (c.distanceMetres / 1000).toFixed(1);
                 const isReserving = reservingId === c.donorProfileId;
-                const isTopMatch = index === 0;
+                const isTopMatch = index === 0; // Visually elevate the highest ranked result
 
                 return (
                   <motion.div

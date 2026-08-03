@@ -1,3 +1,7 @@
+/**
+ * @file matchingService.js
+ * @description Core matching engine for LifeLine. Identifies compatible donors based on location, blood group, and availability.
+ */
 const User          = require('../models/User');
 const DonorProfile  = require('../models/DonorProfile');
 const EmergencyRequest = require('../models/EmergencyRequest');
@@ -7,8 +11,11 @@ const MAX_RADIUS_METRES = 50_000; // 50 km
 const MAX_RESULTS       = 10;
 
 /**
- * Returns every donor blood group that can safely donate to `recipientGroup`.
- * Pure function — used by the aggregation filter and unit-tested directly.
+ * Returns every donor blood group that can safely donate to the given recipient blood group.
+ * Pure function used by the aggregation filter and tested directly.
+ *
+ * @param {string} recipientGroup - The blood group of the recipient.
+ * @returns {string[]} Array of compatible donor blood groups.
  * @param {string} recipientGroup
  * @returns {string[]}
  */
@@ -19,10 +26,10 @@ function getCompatibleDonorGroups(recipientGroup) {
 }
 
 /**
- * Core matching query — per HLD §3.2.
+ * Core matching query as per HLD section 3.2.
  *
  * Runs a MongoDB $geoNear on the User collection (which holds the 2dsphere index),
- * $lookups the DonorProfile, then filters by:
+ * performs a $lookup on DonorProfile, then filters by compatible blood group and availability.
  *   - compatible blood group
  *   - status === 'available'
  * and sorts by distance ASC, reliabilityScore DESC.
@@ -87,11 +94,12 @@ async function findCandidates(location, bloodGroup, maxDistance = MAX_RADIUS_MET
 }
 
 /**
- * Run matching for a given EmergencyRequest and persist the candidate list.
- * Updates the request to status "matched" and stores matchedCandidateIds.
- * @param {string} requestId
- * @param {string[]} [excludeDonorProfileIds]  Donor profile IDs to skip (used during escalation)
- * @returns {Promise<{ request, candidates }>}
+ * Runs the matching engine for a given EmergencyRequest and persists the candidate list.
+ * Updates the request status to "matched" and stores matched candidate IDs.
+ *
+ * @param {string} requestId - The ID of the emergency request.
+ * @param {string[]} [excludeDonorProfileIds=[]] - Donor profile IDs to skip (used during escalation).
+ * @returns {Promise<{ request: Object, candidates: Array }>} The updated request and matching candidates.
  */
 async function runMatchingForRequest(requestId, excludeDonorProfileIds = []) {
   const request = await EmergencyRequest.findById(requestId);

@@ -1,3 +1,7 @@
+/**
+ * @file app.js
+ * @description Express application setup. Configures middleware, security headers, routing, and global error handling for the LifeLine API.
+ */
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

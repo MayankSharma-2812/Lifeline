@@ -1,12 +1,13 @@
 /**
- * aiService — OpenRouter wrapper + deterministic fallback.
+ * @file aiService.js
+ * @description AI service for parsing emergency text and explaining matches. Integrates with OpenRouter with deterministic fallbacks.
  *
- * Per HLD §3.5: "AI is advisory, never authoritative, over the core matching decision."
+ * Per HLD section 3.5: AI is advisory, never authoritative, over the core matching decision.
  * Both public functions try OpenRouter first; any failure (network error, timeout,
  * invalid JSON, missing API key) activates the deterministic fallback so the app
  * keeps working without the AI layer.
  *
- * Per LLD §7 — exact API contract implemented below.
+ * Implements exact API contract per LLD section 7.
  */
 
 const BLOOD_GROUPS     = ['AB+', 'AB-', 'O+', 'O-', 'A+', 'A-', 'B+', 'B-'];
@@ -14,11 +15,16 @@ const URGENCY_VALUES   = ['critical', 'high', 'moderate'];
 const PARSE_TIMEOUT_MS = 8_000;  // 8 s — don't hold up the matching pipeline longer
 const EXPLAIN_TIMEOUT_MS = 10_000;
 
-// ── OpenRouter HTTP helper ───────────────────────────────────────
+// OpenRouter HTTP helper
 
 /**
- * Single fetch-based OpenRouter wrapper per LLD §7.
- * Returns the raw content string or throws on any error.
+ * Single fetch-based OpenRouter wrapper per LLD section 7.
+ *
+ * @param {Array<Object>} messages - The chat context messages for the AI model.
+ * @param {boolean} useJsonMode - Whether to enforce a JSON object response format.
+ * @param {number} timeoutMs - Timeout for the AI request in milliseconds.
+ * @returns {Promise<string|null>} The raw content string from the model, or null.
+ * @throws {Error} On network issues, HTTP errors, or missing API key.
  */
 async function _openrouterRequest(messages, useJsonMode, timeoutMs) {
   const key = process.env.OPENROUTER_API_KEY;
@@ -58,9 +64,15 @@ async function _openrouterRequest(messages, useJsonMode, timeoutMs) {
   }
 }
 
-// ── Deterministic fallback ───────────────────────────────────────
-// Blood groups ordered longest-first so 'AB+' matches before 'B+', etc.
+// Deterministic fallback
+// Blood groups ordered longest-first so AB+ matches before B+, etc.
 
+/**
+ * Parses emergency text using a deterministic fallback approach when AI is unavailable.
+ *
+ * @param {string} rawText - The unformatted emergency text.
+ * @returns {Object} Contains parsed bloodGroup (string|null) and urgency (string).
+ */
 function parseEmergencyTextFallback(rawText) {
   const upper = rawText.toUpperCase();
 
@@ -76,11 +88,14 @@ function parseEmergencyTextFallback(rawText) {
   return { bloodGroup, urgency };
 }
 
-// ── Public: parseEmergencyText ───────────────────────────────────
+// Public: parseEmergencyText
 
 /**
- * Parse a free-text emergency description into { bloodGroup, urgency }.
- * Per LLD §7 — tries OpenRouter first, falls back to deterministic extraction.
+ * Parses a free-text emergency description into structured data.
+ * Tries OpenRouter first, falls back to deterministic extraction on failure.
+ *
+ * @param {string} rawText - The unformatted emergency text provided by the user.
+ * @returns {Promise<{ bloodGroup: string, urgency: string, source: string }>} The parsed data and source.
  */
 async function parseEmergencyText(rawText) {
   try {
@@ -119,11 +134,15 @@ async function parseEmergencyText(rawText) {
   }
 }
 
-// ── Public: explainMatch ─────────────────────────────────────────
+// Public: explainMatch
 
 /**
- * Generate a one-line human-readable explanation for a ranked donor match.
- * Per HLD §3.5 — advisory only, UI still shows the match if this fails.
+ * Generates a one-line human-readable explanation for a ranked donor match.
+ * Advisory only; the UI will still show the match if this fails.
+ *
+ * @param {Object} match - The donor match object containing distance, score, and group.
+ * @param {string} recipientBloodGroup - The requested blood group.
+ * @returns {Promise<string>} A concise explanation sentence.
  */
 async function explainMatch(match, recipientBloodGroup) {
   const km = (match.distanceMetres / 1000).toFixed(1);

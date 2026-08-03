@@ -1,14 +1,23 @@
+/**
+ * @module AuditVerifyScreen.tsx
+ * @description Renders a read-only audit log summarizing the AI parsing results and the Redis lock concurrency state for compliance and verification purposes.
+ */
 import React from 'react';
 import { Sparkles, Lock, ArrowLeft } from 'lucide-react';
 import { Candidate, EmergencyRequest } from '../types';
 
-interface AuditVerifyScreenProps {
+export interface AuditVerifyScreenProps {
   requestId: string;
   parsed: EmergencyRequest['parsed'];
   selectedCandidate?: Candidate | null;
   onBack: () => void;
 }
 
+/**
+ * Audit verification view component.
+ * Displays the structured output from the OpenRouter AI parser alongside the
+ * state of the geospatial match and Redis locking mechanism.
+ */
 export const AuditVerifyScreen: React.FC<AuditVerifyScreenProps> = ({
   requestId,
   parsed,

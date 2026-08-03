@@ -1,10 +1,15 @@
+/**
+ * @module EmergencyFormScreen.tsx
+ * @description The primary data entry view for requesters to submit natural-language emergency blood requests.
+ */
 import React, { useState } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import { Siren, AlertCircle, MapPin, Navigation, Search, Sparkles, Activity, Lock } from 'lucide-react';
 import { Candidate, EmergencyRequest } from '../types';
 import { createEmergencyRequestApi } from '../lib/api';
 
-interface EmergencyFormScreenProps {
+export interface EmergencyFormScreenProps {
+  /** Callback fired upon successful AI parsing and geospatial matching of the request. */
   onSuccess: (data: { requestId: string; parsed: EmergencyRequest['parsed']; candidates: Candidate[] }) => void;
 }
 
@@ -14,14 +19,22 @@ const PRESET_EXAMPLES = [
   'Hospital surgery tomorrow morning requires 2 units of A+ blood. Patient is stable.',
 ];
 
+/**
+ * Captures the emergency text and user location, submits it for processing, and displays skeleton loaders
+ * during the natural language parsing and geospatial queries.
+ */
 export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSuccess }) => {
   const [rawText, setRawText] = useState('');
+  // Pre-seed location state with default coordinates to streamline demo testing
   const [lat, setLat] = useState(26.9124);
   const [lng, setLng] = useState(75.7873);
   const [locText, setLocText] = useState('Jaipur, Rajasthan (26.9124, 75.7873)');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Retrieves precise geospatial coordinates using the browser API.
+   */
   const handleDetectGPS = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -35,6 +48,9 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
     }
   };
 
+  /**
+   * Validates input and fires the API request to parse the text and fetch candidates.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rawText.trim()) {

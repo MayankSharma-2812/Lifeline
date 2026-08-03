@@ -1,9 +1,17 @@
+/**
+ * @module types/index.ts
+ * @description Centralized TypeScript definitions for the LifeLine application.
+ */
+
 export type Role = 'requester' | 'donor';
 
 export type BloodGroup = 'O+' | 'O-' | 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-';
 
 export type Urgency = 'critical' | 'high' | 'moderate';
 
+/**
+ * Represents the lifecycle state of an emergency blood request.
+ */
 export type RequestStatus =
   | 'pending'
   | 'matched'
@@ -13,6 +21,9 @@ export type RequestStatus =
   | 'escalated'
   | 'cancelled';
 
+/**
+ * Standard user profile payload returned from authentication endpoints.
+ */
 export interface User {
   _id: string;
   name: string;
@@ -21,10 +32,13 @@ export interface User {
   role: Role;
   location?: {
     type: string;
-    coordinates: [number, number]; // [lng, lat]
+    coordinates: [number, number]; // GeoJSON format: [longitude, latitude]
   };
 }
 
+/**
+ * Donor-specific profile data containing availability and reliability metrics.
+ */
 export interface DonorProfile {
   _id: string;
   userId: string;
@@ -35,6 +49,9 @@ export interface DonorProfile {
   lastDonationDate?: string;
 }
 
+/**
+ * A matched donor candidate proposed for an emergency request.
+ */
 export interface Candidate {
   donorProfileId: string;
   userId: string;
@@ -43,9 +60,12 @@ export interface Candidate {
   bloodGroup: BloodGroup;
   reliabilityScore: number;
   status: string;
-  explanation?: string;
+  explanation?: string; // Optional reasoning provided by the AI match engine
 }
 
+/**
+ * The core entity representing a user's request for emergency blood.
+ */
 export interface EmergencyRequest {
   _id: string;
   requesterId: string;
@@ -53,11 +73,11 @@ export interface EmergencyRequest {
   parsed: {
     bloodGroup: BloodGroup;
     urgency: Urgency;
-    source?: 'ai' | 'fallback';
+    source?: 'ai' | 'fallback'; // Indicates whether NLP successfully processed the request
   };
   location: {
     type: 'Point';
-    coordinates: [number, number];
+    coordinates: [number, number]; // GeoJSON format: [longitude, latitude]
   };
   status: RequestStatus;
   matchedCandidateIds: string[];

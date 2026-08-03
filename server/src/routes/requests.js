@@ -1,3 +1,7 @@
+/**
+ * @file requests.js
+ * @description Express routes for emergency requests. Handles creation, matching, reservation, confirmation, and escalation of blood requests.
+ */
 const { Router }                 = require('express');
 const { body, validationResult } = require('express-validator');
 const { authenticate }           = require('../middleware/auth');
@@ -14,7 +18,7 @@ const {
 const router = Router();
 router.use(authenticate);
 
-// ── POST /api/v1/requests ────────────────────────────────────────
+// POST /api/v1/requests
 router.post(
   '/',
   [
@@ -58,7 +62,7 @@ router.post(
   }
 );
 
-// ── GET /api/v1/requests/:id/matches ────────────────────────────
+// GET /api/v1/requests/:id/matches
 router.get('/:id/matches', async (req, res, next) => {
   try {
     const { candidates, request } = await runMatchingForRequest(req.params.id);
@@ -82,7 +86,7 @@ router.get('/:id/matches', async (req, res, next) => {
   }
 });
 
-// ── GET /api/v1/requests/:id/audit-trail ─────────────────────────
+// GET /api/v1/requests/:id/audit-trail
 // Demonstrates SQL JOIN query via Prisma ORM (audit_events JOIN donors_reference)
 router.get('/:id/audit-trail', async (req, res, next) => {
   try {
@@ -96,7 +100,7 @@ router.get('/:id/audit-trail', async (req, res, next) => {
   }
 });
 
-// ── POST /api/v1/requests/:id/reserve ───────────────────────────
+// POST /api/v1/requests/:id/reserve
 // Requester reserves a specific donor — acquires the Redis NX lock.
 router.post(
   '/:id/reserve',
@@ -118,7 +122,7 @@ router.post(
   }
 );
 
-// ── POST /api/v1/requests/:id/confirm ───────────────────────────
+// POST /api/v1/requests/:id/confirm
 // Donor confirms the reservation — releases lock, marks confirmed.
 router.post(
   '/:id/confirm',
@@ -136,7 +140,7 @@ router.post(
   }
 );
 
-// ── POST /api/v1/requests/:id/decline ───────────────────────────
+// POST /api/v1/requests/:id/decline
 // Donor declines OR requester simulates no-response → triggers escalation.
 router.post(
   '/:id/decline',

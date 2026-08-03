@@ -1,7 +1,11 @@
+/**
+ * @file DonorProfile.js
+ * @description Mongoose schema for the DonorProfile model. Stores blood group, availability status, and reliability metrics for donors.
+ */
 const mongoose = require('mongoose');
 
 /**
- * DonorProfile — per LLD §1.
+ * DonorProfile schema as per LLD section 1.
  * Compound index on { bloodGroup, status } enables fast filtered matching queries.
  */
 const donorProfileSchema = new mongoose.Schema({
@@ -21,7 +25,7 @@ const donorProfileSchema = new mongoose.Schema({
   },
 });
 
-// LLD §1 specified compound index
+// Compound index specified in LLD section 1
 donorProfileSchema.index({ bloodGroup: 1, status: 1 });
 
 module.exports = mongoose.model('DonorProfile', donorProfileSchema);

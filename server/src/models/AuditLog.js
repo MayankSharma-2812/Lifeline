@@ -1,7 +1,11 @@
+/**
+ * @file AuditLog.js
+ * @description Mongoose schema for the AuditLog model. Provides an append-only ledger for all significant actions related to emergency requests.
+ */
 const mongoose = require('mongoose');
 
 /**
- * AuditLog — per LLD §1. Append-only log of all significant actions.
+ * AuditLog schema as per LLD section 1. Append-only log of all significant actions.
  */
 const auditLogSchema = new mongoose.Schema({
   requestId: { type: mongoose.Schema.Types.ObjectId, ref: 'EmergencyRequest' },

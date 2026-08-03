@@ -1,8 +1,12 @@
+/**
+ * @module Header.tsx
+ * @description Persistent top navigation bar displaying branding, user profile summary, and global controls (theme, logout).
+ */
 import React from 'react';
 import { Droplets, Sun, Moon, LogOut, UserCheck } from 'lucide-react';
 import { User } from '../types';
 
-interface HeaderProps {
+export interface HeaderProps {
   user: User | null;
   dark: boolean;
   onToggleTheme: () => void;
@@ -10,6 +14,13 @@ interface HeaderProps {
   onNavigateHome?: () => void;
 }
 
+/**
+ * Renders the primary application header.
+ * Adapts conditionally based on the user's authentication state and chosen color theme.
+ *
+ * @param props - Configuration properties containing the user context and interaction callbacks.
+ * @returns The fixed header component.
+ */
 export const Header: React.FC<HeaderProps> = ({
   user,
   dark,

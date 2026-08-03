@@ -1,14 +1,23 @@
+/**
+ * @module AuthScreen.tsx
+ * @description Provides the unified user interface for account creation and login. Supports both requester and donor registration flows.
+ */
 import React, { useState } from 'react';
 import { Droplets, Eye, EyeOff, HeartHandshake, MapPin, Navigation, ArrowRight, AlertCircle } from 'lucide-react';
 import { BloodGroup, Role, User } from '../types';
 import { loginApi, signupApi } from '../lib/api';
 
-interface AuthScreenProps {
+export interface AuthScreenProps {
+  /** Callback triggered after a successful authentication event. */
   onSuccess: (user: User) => void;
 }
 
 const BLOOD_GROUPS: BloodGroup[] = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
+/**
+ * unified authentication view component.
+ * Toggles between sign in and registration. For registration, additional fields dynamically appear if the user elects to be a donor.
+ */
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [isSignup, setIsSignup] = useState(false);
   const [name, setName] = useState('');
@@ -17,12 +26,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isDonor, setIsDonor] = useState(false);
   const [bloodGroup, setBloodGroup] = useState<BloodGroup>('O+');
-  const [lat, setLat] = useState<number | undefined>(26.9124); // default Jaipur coord
+  // Pre-seed location state with coordinates for Jaipur, Rajasthan to streamline demo testing
+  const [lat, setLat] = useState<number | undefined>(26.9124);
   const [lng, setLng] = useState<number | undefined>(75.7873);
   const [locationText, setLocationText] = useState('Jaipur, Rajasthan');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Attempts to resolve the user's current physical location using the browser's geolocation API.
+   * Updates state with precise coordinates if granted, otherwise sets an error message.
+   */
   const handleDetectLocation = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(

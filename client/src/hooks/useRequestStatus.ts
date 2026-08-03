@@ -1,3 +1,7 @@
+/**
+ * @module useRequestStatus.ts
+ * @description Hook for subscribing to real-time status updates of an emergency request via Socket.io.
+ */
 import { useEffect, useState } from 'react';
 import { getSocket, joinRequestRoom } from '../lib/socket';
 
@@ -31,13 +35,14 @@ const STATUS_EVENTS: RequestStatus[] = [
 ];
 
 /**
- * useRequestStatus — subscribes to real-time status events for a given request.
+ * Subscribes to real-time status transition events for a specific emergency request.
  *
- * Joins the Socket.io room `request:{requestId}` and listens for all status
- * transition events. Returns the latest { status, payload } so the UI can
- * update the stepper and countdown without polling.
+ * Automatically joins the designated Socket.io room (`request:{requestId}`) and sets up listeners
+ * for state changes. This enables the UI to reflect progress (e.g., stepper updates, countdowns)
+ * immediately without relying on HTTP polling.
  *
- * @param requestId  The EmergencyRequest _id. Pass null when no request is active.
+ * @param requestId - The unique ID of the emergency request. Pass null to disable the subscription.
+ * @returns The most recent status event received, or null if no events have occurred.
  */
 export function useRequestStatus(requestId: string | null) {
   const [statusEvent, setStatusEvent] = useState<StatusEvent | null>(null);
@@ -46,8 +51,10 @@ export function useRequestStatus(requestId: string | null) {
     if (!requestId) return;
 
     const socket = getSocket();
+    // Register the client into the specific room for this request
     joinRequestRoom(requestId);
 
+    // Map over defined status events to attach individual listeners
     const handlers = STATUS_EVENTS.map((event) => {
       const handler = (payload: StatusPayload) => {
         setStatusEvent({ status: event, payload });
@@ -57,9 +64,10 @@ export function useRequestStatus(requestId: string | null) {
     });
 
     return () => {
+      // Detach all listeners explicitly on cleanup to prevent memory leaks and duplicate triggers
       handlers.forEach(({ event, handler }) => socket.off(event, handler));
     };
-  }, [requestId]);
+  }, [requestId]); // Re-run setup only if the tracked request ID changes
 
   return statusEvent;
 }

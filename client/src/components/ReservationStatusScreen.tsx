@@ -1,3 +1,7 @@
+/**
+ * @module ReservationStatusScreen.tsx
+ * @description Provides a real-time status dashboard for an active donor reservation lock.
+ */
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
@@ -5,28 +9,33 @@ import { Clock, CheckCircle2, Lock, AlertTriangle, XCircle, ShieldCheck, ArrowLe
 import { useRequestStatus } from '../hooks/useRequestStatus';
 import { confirmReservationApi, declineReservationApi } from '../lib/api';
 
-interface ReservationStatusScreenProps {
+export interface ReservationStatusScreenProps {
   requestId: string;
   donorProfileId: string;
   lockKey?: string;
   onDone: () => void;
 }
 
+/**
+ * Tracks the active reservation lifecycle. Connects to the Socket.io room for live status events
+ * and maintains a countdown timer corresponding to the Redis lock TTL.
+ */
 export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = ({
   requestId,
   donorProfileId,
   lockKey,
   onDone,
 }) => {
+  // Subscribe to real-time status transitions for this request
   const statusEvent = useRequestStatus(requestId);
   const currentStatus = statusEvent?.status || 'reserved';
 
-  const [secondsLeft, setSecondsLeft] = useState(900); // 15 minutes default
+  const [secondsLeft, setSecondsLeft] = useState(900); // Initialize with 15 minutes default
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Countdown timer
+  // Countdown timer effect
   useEffect(() => {
     const timer = setInterval(() => {
       setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
@@ -34,6 +43,7 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
     return () => clearInterval(timer);
   }, []);
 
+  /** Formats raw seconds into MM:SS display format. */
   const formatTimer = (totalSeconds: number) => {
     const m = Math.floor(totalSeconds / 60)
       .toString()
@@ -42,6 +52,7 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
     return `${m}:${s}`;
   };
 
+  /** Initiates the final confirmation when a donor successfully arrives/donates. */
   const handleConfirm = async () => {
     setLoading(true);
     setError(null);
@@ -55,13 +66,14 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
     }
   };
 
+  /** Declines the current reservation, optionally triggering an automated fallback to the next candidate. */
   const handleDecline = async (outcome: 'declined' | 'no_response' = 'declined') => {
     setLoading(true);
     setError(null);
     try {
       const res = await declineReservationApi(requestId, donorProfileId, outcome);
       
-      // Toast notification moment (b) per spec: "No response — matched with next nearest donor"
+      // Provide toast notification for automated fallback scenarios
       if (outcome === 'no_response' || res.nextCandidate) {
         toast.info('No response — matched with next nearest donor');
       }
@@ -78,6 +90,7 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
     }
   };
 
+  // Define the ordered steps for the visual state machine
   const steps = [
     { id: 'matched', label: 'Matched', icon: CheckCircle2 },
     { id: 'reserved', label: 'Reserved', icon: Lock },
