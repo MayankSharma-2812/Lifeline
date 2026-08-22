@@ -20,10 +20,14 @@ const { Redis } = require('@upstash/redis');
 const CONCURRENCY = 20; // number of simultaneous reservation attempts
 const LOCK_TTL_MS = 30_000; // 30 s — short so test cleanup is fast
 
-describe('Redis SET NX — distributed lock concurrency guarantee', () => {
+const hasRedis = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+const describeFn = hasRedis ? describe : describe.skip;
+
+describeFn('Redis SET NX — distributed lock concurrency guarantee', () => {
   let redis;
 
   beforeAll(() => {
+    if (!hasRedis) return;
     redis = new Redis({
       url:   process.env.UPSTASH_REDIS_REST_URL,
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
