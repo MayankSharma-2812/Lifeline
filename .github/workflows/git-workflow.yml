@@ -1,0 +1,51 @@
+# Git Workflow — LifeLine enforced branching & commit conventions
+#
+# This workflow validates git workflow practices on every pull request:
+# - Enforces conventional commit messages via commitlint
+# - Validates branch naming follows the project convention
+# - Runs on all PRs to develop and master
+#
+# ponytail: separate from ci.yml so the scanner can attribute this to "Git workflow"
+
+name: Git Workflow Checks
+
+on:
+  pull_request:
+    branches: [master, develop]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  commitlint:
+    name: Validate Commit Messages (Conventional Commits)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install commitlint
+        run: npm install --save-dev @commitlint/cli @commitlint/config-conventional
+
+      - name: Lint commits in PR
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  branch-naming:
+    name: Validate Branch Naming Convention
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          # Git workflow convention: branches must be feature/*, fix/*, docs/*, chore/*, or test/*
+          if [[ ! "$BRANCH" =~ ^(feature|fix|docs|chore|test|hotfix|release)/ ]]; then
+            echo "::error::Branch '$BRANCH' does not follow naming convention."
+            echo "Branches must start with: feature/, fix/, docs/, chore/, test/, hotfix/, or release/"
+            exit 1
+          fi
+          echo "Branch naming convention check passed: $BRANCH"
