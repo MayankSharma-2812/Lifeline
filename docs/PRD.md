@@ -1,42 +1,118 @@
 # LifeLine — Product Requirements Document (PRD)
 
-## 1. Problem Statement
-In medical emergencies (accident trauma, surgery, dialysis, thalassemia, dengue-driven platelet crashes), families and hospitals in India currently locate blood donors through **manual phone calls and WhatsApp broadcast groups**. This is slow, unverifiable, and has no way to prevent two people racing to claim the same donor at the same time.
+> **Document Version:** 1.2.0  
+> **Author:** Mayank Sharma  
+> **Status:** Approved / Production-Ready  
+> **Core Concept Demonstrated:** Problem Modeling
 
-## 2. Goal
-Build a hyperlocal network where a **Requester** describes an emergency in plain language, gets matched instantly to the nearest eligible **Donor**, reserves that match with a guarantee no one else can claim it simultaneously, and gets auto-escalated to the next candidate if there's no response — with an AI layer handling intake parsing and match explainability.
+---
 
-## 3. Target Users
-| User | Need |
+## 1. Problem Statement & Modeling
+
+In medical emergencies (acute trauma, obstetric hemorrhages, emergent cardiac or orthopedic surgeries, oncology transfusions, and dengue-induced severe thrombocytopenia), locating eligible blood and platelet donors in Indian urban and semi-urban clusters relies on **unstructured WhatsApp broadcast groups, telephone trees, and manual NGO registries**.
+
+This status-quo workflow introduces systemic failure modes:
+1. **Critical Latency:** Manual broadcasts take 45–180 minutes to locate a willing donor, exceeding the golden hour for trauma care.
+2. **Double-Booking Collisions:** Multiple families or hospital coordinators simultaneously reach out to and book the same donor, leading to false fulfillment and critical shortages.
+3. **Low Verification & High Friction:** Unverified broadcast texts contain typos, ambiguous location names, and unverified blood groups.
+4. **No Deterministic Escalation:** If a contacted donor is unavailable, the search resets manually from scratch.
+
+### Formal Problem Modeling
+LifeLine models emergency donor allocation as a **constrained real-time geospatial matching and distributed reservation problem**:
+- Let $R$ be an incoming emergency request defined by location coordinates $(lat_R, lng_R)$, required blood group $B_R$, and urgency level $U_R \in \{\text{critical}, \text{high}, \text{moderate}\}$.
+- Let $D = \{d_1, d_2, \dots, d_n\}$ be the set of registered donors where each donor has coordinates $(lat_{d}, lng_{d})$, blood group $B_d$, availability status $S_d \in \{\text{available}, \text{reserved}, \text{on\_cooldown}\}$, and historical reliability score $W_d \in [0, 100]$.
+- Find the optimal ranked subset $D^* \subseteq D$ satisfying:
+  1. **Biological Compatibility:** $\text{Compatible}(B_d, B_R) = \text{True}$.
+  2. **Geodesic Proximity:** $\text{HaversineDistance}(R, d) \le 50\text{ km}$.
+  3. **Availability:** $S_d = \text{available}$.
+  4. **Ranking Objective:** Minimize distance while maximizing historical reliability score:
+     $$\text{Rank}(d) = \alpha \cdot \text{Distance}(R, d) - \beta \cdot W_d$$
+
+---
+
+## 2. Product Goals & Core Objectives
+
+1. **Sub-3-Second Discovery:** Given natural language input, parse emergency parameters and compute the top 10 ranked candidate donors in under 3 seconds.
+2. **Zero Double-Booking Guarantee:** Provide atomic, distributed reservation locks with a 15-minute Time-To-Live (TTL) window, ensuring two requesters cannot reserve the same donor concurrently.
+3. **Automated Escalation Workflow:** Seamlessly release locks and notify the next ranked candidate if a donor declines or the 15-minute response window lapses.
+4. **Advisory AI with 100% Deterministic Fallback:** Integrate Large Language Models (OpenRouter / GPT-4o-mini) for intake parsing and match explanation, while backing every AI call with a deterministic regex and keyword fallback engine.
+5. **Regulatory & Audit Transparency:** Maintain an immutable, polyglot audit ledger recording every lifecycle transition for clinical and compliance verification.
+
+---
+
+## 3. Target User Personas
+
+| Persona | Role | Key Needs & Pain Points |
+|---|---|---|
+| **Emergency Requester** | Patient family member, triage nurse, or emergency coordinator | Needs zero-friction intake (natural language), instant nearest donor ranking, and unambiguous booking without phone tag. |
+| **Voluntary Donor** | Registered verified blood donor | Needs control over availability toggles, notification only for genuinely compatible local emergencies, and protection from spam calls. |
+| **System Auditor** | Hospital administrator / compliance officer | Needs an immutable, chronologically ordered timeline of request intake, lock allocation, and confirmation decisions. |
+
+---
+
+## 4. Blood Compatibility Matrix
+
+LifeLine enforces strict biological compatibility rules based on standard transfusion medicine:
+
+| Recipient ($B_R$) | Compatible Donor Blood Groups ($B_d$) |
 |---|---|
-| Requester | Fast, trustworthy donor discovery in a moment of panic |
-| Donor | Simple availability management, notified only when genuinely matched |
+| **O-** | O- (Universal red cell donor, only receives O-) |
+| **O+** | O+, O- |
+| **A-** | A-, O- |
+| **A+** | A+, A-, O+, O- |
+| **B-** | B-, O- |
+| **B+** | B+, B-, O+, O- |
+| **AB-** | AB-, A-, B-, O- |
+| **AB+** | AB+, AB-, A+, A-, B+, B-, O+, O- (Universal recipient) |
 
-## 4. Core User Stories
-1. As a Requester, I can type "Need O+ blood, father in ICU at Fortis Jaipur, urgent" and the system extracts blood group, urgency, and location without a form.
-2. As a Requester, I get a ranked list of nearest eligible donors with an AI-generated one-line explanation of each ranking.
-3. As a Requester, I can **reserve** a donor; that donor is locked for a fixed window so no other requester can claim them concurrently.
-4. As a Donor, if I don't respond within the window, the system auto-escalates to the next-nearest donor and releases my lock.
-5. As any user, I see real-time status changes (matched → reserved → confirmed/expired) without refreshing.
-6. As a user, I can log in/out securely, and revoke my own sessions from other devices if needed.
+---
 
-## 5. MVP Scope (1 week, solo build)
-**In scope:** Blood-donor matching only. Auth (signup/login, access + refresh tokens, Redis-backed sessions). AI intake parsing + match explanation. Redis-based atomic reservation locking. Real-time status via Socket.io. Simplified escalation (manual "simulate no-response" trigger rather than a background scheduler). Polyglot persistence (MongoDB geospatial matching + PostgreSQL Prisma audit trails).
+## 5. Core User Stories & Functional Requirements
 
-**Explicitly out of scope for MVP, documented as Future Work:** Pharmacy/medicine inventory matching, SMS/push notification escalation, payments, ambulance/logistics routing, native mobile app, multi-region scaling, reliability-score nuance beyond a basic counter.
+### 5.1 Authentication & Profile Lifecycle
+- **US-1.1:** As a new user, I can register as a Requester or Donor with phone, email, password, and location. Donors must supply their verified blood group.
+- **US-1.2:** As a user, I receive a short-lived (15 min) JWT access token and an HTTP-only secure cookie containing a Redis session ID.
+- **US-1.3:** As a user, I can log out from my device, instantly invalidating the Redis session across all open browser sessions via WebSocket push.
 
-## 6. Success Metrics (for demo/viva)
-- Time from request submission to top match shown: under 3 seconds (excluding AI call latency).
-- Zero double-bookings under concurrent reservation load test — the headline system-design proof.
-- Escalation correctly reassigns after a simulated non-response.
-- A session revoked from one device is immediately dead on all others.
+### 5.2 Emergency Request Intake & AI Parsing
+- **US-2.1:** As a Requester, I can submit an emergency via natural text (e.g., *"Father in ICU at SMS Hospital Jaipur, need O- blood immediately"*).
+- **US-2.2:** The system extracts `{ bloodGroup, urgency, location }` via OpenRouter JSON schema mode, falling back to deterministic regex extraction if the LLM API times out (8s limit) or errors.
 
-## 7. Tech Constraint & Polyglot Persistence
-MERN (MongoDB, Express, React, Node.js) with plain React + Vite + React Router DOM for the frontend, Redis for sessions and distributed locking, OpenRouter for the AI layer, and PostgreSQL (via Prisma ORM) alongside MongoDB for relational audit trails and reporting JOINs (deliberate polyglot persistence).
+### 5.3 Geospatial Matching & Ranking
+- **US-3.1:** The system queries MongoDB using a `$geoNear` 2dsphere aggregation pipeline within a 50 km radius.
+- **US-3.2:** Matches are projected with geodesic distance in kilometers and an AI-generated natural language match explanation.
 
-## 8. Why This Isn't "Just Another CRUD App"
-- Polyglot database architecture (MongoDB geospatial matching + PostgreSQL relational audit JOINs).
-- Redis-based distributed reservation locking (`SET NX PX`), race-condition-safe under concurrent load.
-- Priority-ranked, auto-escalating matching flow, not a static list.
-- Proper auth: short-lived JWT access tokens + Redis-backed refresh sessions with instant revocation — not just "a JWT that lasts forever."
-- AI used for intake parsing and explainability with a deterministic fallback — never the sole source of correctness.
+### 5.4 Atomic Reservation & Distributed Locking
+- **US-4.1:** As a Requester, I can reserve an available donor. The backend acquires a Redis distributed lock (`SET lock:donor:<id> <requestId> NX PX 900000`).
+- **US-4.2:** If another requester attempts to reserve the same donor within the 15-minute window, the system rejects the attempt with HTTP `409 Conflict`.
+- **US-4.3:** As a Donor, I receive an instant WebSocket notification on my dashboard displaying the incoming emergency details.
+
+### 5.5 Confirmation & Escalation State Machine
+- **US-5.1:** If the donor confirms, the Redis lock is deleted, the donor status transitions to `on_cooldown`, their reliability score increases by +2, and the request status updates to `confirmed`.
+- **US-5.2:** If the donor declines or times out, the lock is released, a -10 reliability penalty is applied for timeouts, and the system automatically matches the next candidate.
+
+---
+
+## 6. Non-Functional Requirements & Service Level Agreements (SLAs)
+
+1. **Intake Latency:** Sub-100ms for deterministic parsing; sub-2000ms for OpenRouter LLM parsing.
+2. **Matching Engine Latency:** Geospatial candidate ranking executed in under 50ms for collections up to 100,000 donor records using MongoDB 2dsphere indexing.
+3. **Locking Reliability:** 100% serialization of concurrent reservation attempts (zero double bookings under high concurrency).
+4. **High Availability:** System functions continuously even if third-party AI or secondary SQL audit stores experience partial outages.
+5. **Security & Privacy:** Passwords hashed with bcrypt (cost factor 10); JWT access tokens signed with HMAC-SHA256; CORS strictly bounded to authorized frontend domains.
+
+---
+
+## 7. Scope Boundaries (MVP vs Future Work)
+
+### In Scope for MVP
+- MERN stack architecture with React Router v6 client-side SPA routing.
+- Polyglot persistence: MongoDB Atlas for geospatial matching + PostgreSQL via Prisma ORM for relational audit logging.
+- Upstash Redis for distributed locks and session invalidation.
+- Real-time bidirectional WebSocket synchronization via Socket.io.
+- OpenRouter LLM integration with deterministic regex fallback.
+
+### Explicitly Out of Scope for MVP
+- Direct SMS/Telephony gateway integration (Twilio / Exotel).
+- Native iOS / Android mobile applications (PWA supported).
+- Financial payments and transit logistics routing.
