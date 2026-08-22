@@ -64,7 +64,7 @@ describeFn('Redis SET NX — distributed lock concurrency guarantee', () => {
       expect(successes).toHaveLength(1);
       expect(failures).toHaveLength(CONCURRENCY - 1);
     },
-    15_000 // 15 s timeout — Upstash REST has network latency
+    30_000 // 30 s timeout — Upstash REST has network latency
   );
 
   test('lock is released when key is deleted (simulating confirm/decline)', async () => {
@@ -86,5 +86,5 @@ describeFn('Redis SET NX — distributed lock concurrency guarantee', () => {
     expect(third).toBe('OK');
 
     await redis.del(lockKey); // cleanup
-  }, 15_000);
+  }, 30_000);
 });
