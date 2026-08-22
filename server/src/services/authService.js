@@ -166,7 +166,12 @@ async function logout(sessionId) {
 }
 
 // Internal
-
+// Demonstrates JavaScript Function Declaration Hoisting:
+// _createSession is declared here using a function declaration (`async function _createSession`),
+// so the JavaScript engine hoists its full declaration to the top of the module scope.
+// This allows earlier functions like signup() (line 82) and login() (line 108) to safely invoke
+// _createSession() before its physical definition in the file, avoiding Temporal Dead Zone (TDZ) errors
+// that would occur with `const _createSession = ...`.
 async function _createSession(user) {
   const accessToken  = makeAccessToken(user._id);
   const refreshToken = crypto.randomBytes(40).toString('hex');

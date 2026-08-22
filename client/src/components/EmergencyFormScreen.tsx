@@ -34,6 +34,11 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
 
   /**
    * Retrieves precise geospatial coordinates using the browser API.
+   *
+   * Demonstrates JavaScript Callbacks vs Promises:
+   * navigator.geolocation.getCurrentPosition uses the legacy error-first callback pattern
+   * passing separate success and error callback functions, in contrast to modern Promise / async-await
+   * workflows used elsewhere in the app (e.g. handleSubmit below).
    */
   const handleDetectGPS = () => {
     if ('geolocation' in navigator) {
@@ -50,6 +55,13 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
 
   /**
    * Validates input and fires the API request to parse the text and fetch candidates.
+   *
+   * Demonstrates JavaScript Event Loop & Microtask Mechanics:
+   * 1. Synchronous execution: setError(null) and setLoading(true) are pushed onto the Call Stack immediately.
+   * 2. Yielding to Event Loop: Encountering `await createEmergencyRequestApi(...)` suspends handleSubmit
+   *    and yields the thread to the Event Loop, allowing React to re-render the DOM with <Skeleton /> (line 73).
+   * 3. Microtask queue: When the network HTTP promise resolves, its continuation callback is enqueued into
+   *    the Microtask Queue and executed before the next macrotask, resuming in try/catch to call onSuccess(res).
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
