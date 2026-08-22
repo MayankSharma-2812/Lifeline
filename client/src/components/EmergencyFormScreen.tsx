@@ -1,6 +1,13 @@
 /**
  * @module EmergencyFormScreen.tsx
  * @description The primary data entry view for requesters to submit natural-language emergency blood requests.
+ *
+ * Concepts demonstrated in this file:
+ * - JavaScript — Event loop: Microtasks (Promise.resolve().then) vs Macrotasks (setTimeout) execution order
+ * - JavaScript — Promises vs callbacks: navigator.geolocation callbacks vs fetch .then/.catch promise chaining vs async/await
+ * - Async data fetching from API: createEmergencyRequestApi network calls with error handling
+ * - Form handling — controlled inputs: Controlled textarea and preset buttons binding state to UI
+ * - Loading & error UI states: Skeleton loaders during network transit and visual error banners on failure
  */
 import React, { useState } from 'react';
 import Skeleton from 'react-loading-skeleton';

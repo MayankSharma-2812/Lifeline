@@ -1,3 +1,9 @@
+// Concepts demonstrated in this schema:
+// - Relational schema design with PK/FK: Primary keys (@id uuid()), foreign keys (donorId -> DonorReference.id), and 1:N relations
+// - Normalization basics: 3NF relational modeling separating donor identity (DonorReference) from immutable events (AuditEvent)
+// - ORM usage (Prisma/Sequelize): Prisma schema definition with table mappings (@@map), field mappings (@map), and cascade rules (onDelete: SetNull)
+// - Indexing for query performance (SQL): Unique constraint index on mongo_donor_id and foreign key index on donor_id
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -7,6 +13,7 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Concept: Relational schema design with PK/FK & Normalization basics
 model DonorReference {
   id           String       @id @default(uuid())
   mongoDonorId String       @unique @map("mongo_donor_id")

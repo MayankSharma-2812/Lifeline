@@ -1,6 +1,11 @@
 /**
  * @file reservationService.js
  * @description Handles the atomic reservation of donors using Redis distributed locks to prevent double-booking.
+ *
+ * Concepts demonstrated in this file:
+ * - Caching with Redis: Distributed locking pattern via SET NX PX in Upstash Redis to serialize concurrent reservations
+ * - WebSocket / real-time communication: Real-time socket event emissions on reservation, confirmation, and escalation
+ * - Scheduled jobs / cron: TTL-based timeout expiry and automated escalation workflow when donor response window lapses
  */
 const { getRedis }        = require('../config/redis');
 const DonorProfile        = require('../models/DonorProfile');
@@ -9,11 +14,13 @@ const { emitSocketEvent, emitToUser } = require('../socket');
 const { runMatchingForRequest } = require('./matchingService');
 const { recordAuditEvent }     = require('./auditService');
 
+// Concept: Caching with Redis — 15-minute lock TTL (900 seconds) for atomic reservation
 const LOCK_TTL_SECONDS = 900; // 15 minutes — per LLD §2
 
 /**
  * Reserves a donor atomically using a Redis distributed lock (SET NX PX).
  * Ensures double-booking is structurally impossible. Implementation based on LLD section 4.
+ * Demonstrates Concepts: Caching with Redis, WebSocket / real-time communication
  *
  * @param {string} requestId - The ID of the associated emergency request.
  * @param {string} donorProfileId - The ID of the donor profile to reserve.
@@ -26,8 +33,7 @@ async function reserveDonor(requestId, donorProfileId, actorUserId, ttl = LOCK_T
   const lockKey = `lock:donor:${donorProfileId}`;
   const redis   = getRedis();
 
-  // The atomic lock acquisition
-  // SET lockKey requestId NX PX <ttl_ms>
+  // Concept: Caching with Redis — Atomic SET lockKey requestId NX PX <ttl_ms>
   // Returns 'OK' if acquired, null if key already exists (already reserved).
   const acquired = await redis.set(lockKey, requestId.toString(), {
     nx: true,

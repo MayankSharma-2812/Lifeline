@@ -1,6 +1,12 @@
 /**
  * @file authService.js
  * @description Authentication service. Handles user registration, login, session management using Redis, and token generation.
+ *
+ * Concepts demonstrated in this file:
+ * - JavaScript — Hoisting: Function declaration hoisting allowing private helper _createSession to be invoked before its declaration line
+ * - Password hashing: bcrypt salt hashing and secure comparison during signup/login
+ * - JWT issuance & verification: jwt.sign with expiration and secure payload encoding
+ * - Role-based authorization checks: Session creation and role attachment for 'donor' vs 'requester'
  */
 const crypto       = require('crypto');
 const bcrypt       = require('bcrypt');

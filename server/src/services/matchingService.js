@@ -1,6 +1,10 @@
 /**
  * @file matchingService.js
  * @description Core matching engine for LifeLine. Identifies compatible donors based on location, blood group, and availability.
+ *
+ * Concepts demonstrated in this file:
+ * - Aggregation pipelines: Multi-stage MongoDB pipeline combining $geoNear spatial filtering, $lookup relational joins, $unwind, $match blood compatibility, $sort, and $project projections
+ * - Problem modeling: Mathematical blood group compatibility matrix and multi-variable ranking formula (distance vs reliability score)
  */
 const User          = require('../models/User');
 const DonorProfile  = require('../models/DonorProfile');

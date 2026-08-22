@@ -1,6 +1,12 @@
 /**
  * @module App.tsx
  * @description Main application routing component. Handles authentication state, theme preferences, and top-level routing logic.
+ *
+ * Concepts demonstrated in this file:
+ * - Client-side routing: React Router v6 architecture with BrowserRouter, Routes, Route, useNavigate, useParams, and Navigate redirects
+ * - React component composition: Composing modular screen components (Header, AuthScreen, EmergencyFormScreen, MatchingDonorScreen, etc.)
+ * - State management with useState: Centralized UI state for authenticated user, active request, dark mode, and reservation data
+ * - Side effects with useEffect: Silent authentication initialization on mount and DOM theme synchronization
  */
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
@@ -21,10 +27,12 @@ import { AuditVerifyScreen } from './components/AuditVerifyScreen';
 /**
  * Inner application content component.
  * Manages the core state variables (user, currentRequest, reservedDonor) and provides the main routing structure.
+ * Demonstrates Concepts: React component composition, State management with useState, Client-side routing
  *
  * @returns React component wrapping the application layout and routes.
  */
 function AppContent() {
+  // Concept: State management with useState — user session and view state
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [dark, setDark] = useState(false);
@@ -40,6 +48,7 @@ function AppContent() {
     lockKey: string;
   } | null>(null);
 
+  // Concept: Client-side routing — programmatic navigation hook
   const navigate = useNavigate();
 
   // Initialize and manage the global socket lifecycle

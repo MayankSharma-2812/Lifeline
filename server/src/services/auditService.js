@@ -1,6 +1,12 @@
 /**
  * @file auditService.js
  * @description Polyglot audit logging service. Writes significant system actions to PostgreSQL via Prisma, falling back to MongoDB.
+ *
+ * Concepts demonstrated in this file:
+ * - SQL JOINs: Generates SQL LEFT JOIN across audit_events and donors_reference tables using Prisma include: { donor: true }
+ * - Filtering, ordering, grouping: SQL query filtering via where: { requestId } and sorting via orderBy: { timestamp: 'asc' }
+ * - ORM usage (Prisma/Sequelize): Type-safe Prisma Client methods (findUnique, upsert, create, findMany)
+ * - Relational schema design with PK/FK: Interacts with PostgreSQL foreign key relationships between audit events and donor references
  */
 const { getPrisma } = require('../config/prisma');
 const AuditLog = require('../models/AuditLog');

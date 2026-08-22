@@ -1,6 +1,15 @@
 /**
  * @module AuthScreen.tsx
  * @description Provides the unified user interface for account creation and login. Supports both requester and donor registration flows.
+ *
+ * Concepts demonstrated in this file:
+ * - JavaScript — Closures: Event handlers (handleSubmit, handleDetectLocation) form closures over component state variables
+ * - JavaScript — async/await: Clean sequential asynchronous execution for login and registration network requests
+ * - State management with useState: Comprehensive local state managing authentication tabs, controlled inputs, and UI feedback
+ * - Form handling — controlled inputs: React-controlled input bindings for email, password, role toggles, and blood group selectors
+ * - Form validation: Client-side validation enforcing required fields, email formatting, and donor-specific requirements
+ * - Responsive layout & styling competence: Mobile-first responsive card layout with Tailwind CSS and dark-mode styling
+ * - Loading & error UI states: Dynamic submission spinners and visual alert banners for authentication errors
  */
 import React, { useState } from 'react';
 import { Droplets, Eye, EyeOff, HeartHandshake, MapPin, Navigation, ArrowRight, AlertCircle } from 'lucide-react';

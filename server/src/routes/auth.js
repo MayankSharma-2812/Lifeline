@@ -1,6 +1,13 @@
 /**
  * @file auth.js
  * @description Express routes for authentication. Provides endpoints for signup, login, session refresh, and logout.
+ *
+ * Concepts demonstrated in this file:
+ * - RESTful endpoint design: Semantic HTTP methods (POST /signup, POST /login, POST /refresh, POST /logout, GET /me)
+ * - Request body validation: express-validator rule chains (isEmail, isLength, isIn, custom validators)
+ * - Form validation: Server-side validation rejecting invalid donor blood groups and missing passwords with 400 status
+ * - HTTP status codes used correctly: 201 Created on registration, 400 on validation failure, 401 on missing session, 404 on missing user
+ * - CRUD operations (Mongo): Querying and persisting user records via Mongoose models
  */
 const { Router }                 = require('express');
 const { body, validationResult } = require('express-validator');

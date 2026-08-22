@@ -1,11 +1,15 @@
 /**
  * @file redis.js
  * @description Redis connection configuration. Manages the Upstash Redis client for caching and ephemeral data storage.
+ *
+ * Concepts demonstrated in this file:
+ * - Caching with Redis: Upstash Redis connection management and ping health verification
+ * - Environment variables & secrets management: UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN validation
  */
 const { Redis } = require('@upstash/redis');
 
 /**
- * Upstash Redis REST client - HTTP-based, no persistent TCP connection needed.
+ * Concept: Caching with Redis — Upstash Redis REST client - HTTP-based, no persistent TCP connection needed.
  * @upstash/redis auto-serialises/deserialises values as JSON, so we store
  * plain objects and get plain objects back (no manual JSON.parse/stringify).
  */
@@ -13,14 +17,17 @@ let client;
 
 /**
  * Initializes the Redis connection and performs a ping operation to verify connectivity.
+ * Demonstrates Concepts: Caching with Redis, Environment variables & secrets management
  * @returns {Promise<void>} Resolves when the client is successfully connected and verified.
  * @throws {Error} If the required environment variables are not set.
  */
 async function connectRedis() {
+  // Concept: Environment variables & secrets management — runtime secret validation
   const url   = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) throw new Error('UPSTASH_REDIS_REST_URL / TOKEN not set');
 
+  // Concept: Caching with Redis — client instantiation
   client = new Redis({ url, token });
 
   // Smoke-test the connection

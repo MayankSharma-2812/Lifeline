@@ -1,6 +1,12 @@
 /**
  * @module DonorDashboardScreen.tsx
  * @description Serves as the primary operational view for registered donors, handling profile toggles and incoming reservation requests.
+ *
+ * Concepts demonstrated in this file:
+ * - Side effects with useEffect: Component mount lifecycle execution fetching donor profile and active reservation state
+ * - State management with useState: Local reactive state for profile metadata, toggling states, error alerts, and incoming locks
+ * - WebSocket / real-time communication: Subscribing to live push events for incoming emergency reservations via custom socket hook
+ * - Async data fetching from API: Invoking profile retrieval and reservation decision endpoints
  */
 import React, { useEffect, useState } from 'react';
 import Skeleton from 'react-loading-skeleton';

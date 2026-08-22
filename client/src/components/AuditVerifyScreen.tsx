@@ -1,6 +1,10 @@
 /**
  * @module AuditVerifyScreen.tsx
  * @description Renders a read-only audit log summarizing the AI parsing results and the Redis lock concurrency state for compliance and verification purposes.
+ *
+ * Concepts demonstrated in this file:
+ * - React component composition: Composing card layouts, metadata badges, Lucide icons, and structured payload views
+ * - Structured outputs: Presenting JSON-structured emergency intake fields in a visual audit inspector
  */
 import React from 'react';
 import { Sparkles, Lock, ArrowLeft } from 'lucide-react';
