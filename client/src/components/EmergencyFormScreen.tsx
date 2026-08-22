@@ -35,10 +35,9 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
   /**
    * Retrieves precise geospatial coordinates using the browser API.
    *
-   * Demonstrates JavaScript Callbacks vs Promises:
+   * Demonstrates JavaScript Callbacks:
    * navigator.geolocation.getCurrentPosition uses the legacy error-first callback pattern
-   * passing separate success and error callback functions, in contrast to modern Promise / async-await
-   * workflows used elsewhere in the app (e.g. handleSubmit below).
+   * requiring separate success and error callback functions, in direct contrast to Promise chaining below.
    */
   const handleDetectGPS = () => {
     if ('geolocation' in navigator) {
@@ -54,14 +53,46 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
   };
 
   /**
+   * Performs non-blocking background intake telemetry using raw Promise chaining (.then / .catch).
+   *
+   * Demonstrates JavaScript Promises vs Callbacks:
+   * Directly contrasts with handleDetectGPS (callback style above). Instead of passing multiple callback
+   * parameters into a single function, this consumes an asynchronous operation via chained .then() transformations
+   * and a trailing .catch() error handler without blocking UI rendering or wrapping in async/await.
+   */
+  const pingIntakeTelemetry = () => {
+    fetch('/health')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data: { status: string }) => {
+        console.debug('[Telemetry:Promise] Server health confirmed via raw Promise .then() chain:', data.status);
+      })
+      .catch((err: Error) => {
+        console.warn('[Telemetry:Promise] Non-blocking telemetry ping caught via .catch():', err.message);
+      });
+  };
+
+  /**
+   * Handles preset selection and triggers background telemetry ping.
+   */
+  const handleSelectPreset = (ex: string) => {
+    setRawText(ex);
+    pingIntakeTelemetry();
+  };
+
+  /**
    * Validates input and fires the API request to parse the text and fetch candidates.
    *
-   * Demonstrates JavaScript Event Loop & Microtask Mechanics:
-   * 1. Synchronous execution: setError(null) and setLoading(true) are pushed onto the Call Stack immediately.
-   * 2. Yielding to Event Loop: Encountering `await createEmergencyRequestApi(...)` suspends handleSubmit
-   *    and yields the thread to the Event Loop, allowing React to re-render the DOM with <Skeleton /> (line 73).
-   * 3. Microtask queue: When the network HTTP promise resolves, its continuation callback is enqueued into
-   *    the Microtask Queue and executed before the next macrotask, resuming in try/catch to call onSuccess(res).
+   * Demonstrates JavaScript Event Loop Task Ordering (Microtasks vs Macrotasks):
+   * 1. Synchronous Execution: setError(null) and setLoading(true) execute immediately on the Call Stack.
+   * 2. Yielding to Event Loop: Encountering `await createEmergencyRequestApi(...)` suspends execution
+   *    and yields the thread to the Event Loop, allowing React to render the <Skeleton /> loader (line 90+).
+   * 3. Microtask Queue (Promise.resolve().then): Immediately after the network promise settles, the microtask
+   *    callback executes to perform high-priority state logging BEFORE browser repainting or macrotasks.
+   * 4. Macrotask Queue (setTimeout): The view transition onSuccess(res) is scheduled in the Macrotask (Timer)
+   *    Queue with 0ms delay. The Event Loop guarantees that all pending microtasks drain before macrotasks run.
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +105,17 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
 
     try {
       const res = await createEmergencyRequestApi(rawText, { lat, lng });
-      onSuccess(res);
+
+      // Event Loop Demonstration: Microtask execution
+      Promise.resolve().then(() => {
+        console.debug('[EventLoop:Microtask] Microtask queue drained: validated request ID', res.requestId);
+      });
+
+      // Event Loop Demonstration: Macrotask execution
+      setTimeout(() => {
+        console.debug('[EventLoop:Macrotask] Macrotask timer fired: executing view transition');
+        onSuccess(res);
+      }, 0);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to submit emergency request.');
     } finally {
@@ -161,7 +202,7 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => setRawText(ex)}
+                  onClick={() => handleSelectPreset(ex)}
                   className="w-full text-left text-xs p-2.5 bg-surface-container-low hover:bg-surface-container-high rounded-lg border border-outline-variant text-on-surface transition-all truncate"
                 >
                   "{ex}"

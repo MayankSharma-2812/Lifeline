@@ -30,6 +30,7 @@ app.use('/api/v1/donors',   require('./routes/donors'));
 
 // ── Health check ────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/v1/health', (_req, res) => res.json({ status: 'ok' }));
 
 // ── Global error handler ────────────────────────────────────────
 // eslint-disable-next-line no-unused-vars
