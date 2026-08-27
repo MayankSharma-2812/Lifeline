@@ -144,3 +144,22 @@ The AI layer enhances user experience without becoming a single point of failure
    - Strict field whitelisting and schema validation prevent NoSQL object injection (`{ "$gt": "" }`).
 2. **Transport Security:** Enforced HTTPS with TLS 1.3 in production; secure, HTTP-only, SameSite cookies for refresh sessions.
 3. **Data Privacy:** Passwords hashed with bcrypt (salt factor 10); donor phone numbers and exact street addresses obfuscated until explicit confirmation.
+
+---
+
+## 6. Multi-System Concept Implementation Directory
+
+| Concept | Subsystem & File | Concrete Mechanism |
+|---|---|---|
+| **System design basics: Integration** | `docs/HLD.md` (§2) & `server/src/app.js` | Integration of React SPA, Express API, MongoDB Atlas, PostgreSQL Neon, Upstash Redis, and Socket.io |
+| **Problem modeling** | `docs/PRD.md` (§1) & `matchingService.js` | Mathematical modeling of emergency triage: $\text{Rank}(d) = \alpha \cdot \text{Distance} - \beta \cdot W_d$ |
+| **Middleware** | `server/src/middleware/auth.js` | Express middleware `authenticate` verifying JWT tokens and assigning `req.userId` |
+| **Client-side routing** | `client/src/App.tsx` | React Router v6 `<Routes>` with `<Route>` components, `useNavigate`, and role-based redirects |
+| **JavaScript — Event loop** | `client/src/components/EmergencyFormScreen.tsx` | Microtasks (`Promise.resolve().then`) vs Macrotasks (`setTimeout(..., 0)`) in `handleSubmit` |
+| **JavaScript — Hoisting** | `server/src/services/authService.js` | Module-level hoisting of `async function _createSession(user)` to permit top-level caller access |
+| **React component composition** | `client/src/components/AuthScreen.tsx` | Component composition using `AuthScreenProps { onSuccess }` interface and sub-tree components |
+| **State management with useState** | `client/src/components/AuthScreen.tsx` | State hooks for controlled inputs, role switches, and UI feedback |
+| **CRUD operations (Mongo)** | `server/src/services/authService.js` | MongoDB CRUD: `User.findOne`, `User.create`, `DonorProfile.create` |
+| **Relational schema design (PK/FK)** | `server/prisma/schema.prisma` | PostgreSQL 1:N foreign key between `AuditEvent` and `DonorReference` with `onDelete: SetNull` |
+| **SQL JOINs** | `server/src/services/auditService.js` | SQL `LEFT JOIN` via `prisma.auditEvent.findMany({ include: { donor: true } })` |
+

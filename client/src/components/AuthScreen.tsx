@@ -16,6 +16,11 @@ import { Droplets, Eye, EyeOff, HeartHandshake, MapPin, Navigation, ArrowRight, 
 import { BloodGroup, Role, User } from '../types';
 import { loginApi, signupApi } from '../lib/api';
 
+/**
+ * Concept: React component composition — Strict single-prop callback interface.
+ * Encapsulates all transient form state internally while delegating root session updates
+ * back to App.tsx without prop-drilling or root re-render thrashing.
+ */
 export interface AuthScreenProps {
   /** Callback triggered after a successful authentication event. */
   onSuccess: (user: User) => void;
@@ -24,10 +29,12 @@ export interface AuthScreenProps {
 const BLOOD_GROUPS: BloodGroup[] = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
 /**
- * unified authentication view component.
+ * Unified authentication view component.
+ * Demonstrates Concepts: React component composition, State management with useState, Form handling — controlled inputs
  * Toggles between sign in and registration. For registration, additional fields dynamically appear if the user elects to be a donor.
  */
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
+  // Concept: State management with useState — local state hooks for tabs, inputs, and UI feedback
   const [isSignup, setIsSignup] = useState(false);
   const [name, setName] = useState('');
   const [identifier, setIdentifier] = useState('');
@@ -41,6 +48,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [locationText, setLocationText] = useState('Jaipur, Rajasthan');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
 
   /**
    * Attempts to resolve the user's current physical location using the browser's geolocation API.

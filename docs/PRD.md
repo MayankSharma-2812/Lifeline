@@ -116,3 +116,25 @@ LifeLine enforces strict biological compatibility rules based on standard transf
 - Direct SMS/Telephony gateway integration (Twilio / Exotel).
 - Native iOS / Android mobile applications (PWA supported).
 - Financial payments and transit logistics routing.
+
+---
+
+## 8. Concept Implementation & Traceability Matrix
+
+| Rubric Concept | Primary Implementation File | Exact Code Element / Mechanism |
+|---|---|---|
+| **Problem modeling** | `docs/PRD.md` (§1 & §2) & `matchingService.js` | Constrained optimization model: $\text{Rank}(d) = \alpha \cdot \text{Distance} - \beta \cdot W_d$ |
+| **System design basics: Integration** | `docs/HLD.md` (§2 & §3.4) | Polyglot architecture (MongoDB Atlas + PostgreSQL Neon + Upstash Redis REST + Socket.io) |
+| **Middleware** | `server/src/middleware/auth.js` | Express route-level `authenticate` middleware validating Bearer JWT & setting `req.userId` |
+| **Client-side routing** | `client/src/App.tsx` | React Router v6 `<Routes>`, `<Route path="/login"|"/intake"|"/matches"|"/dashboard">` and role guards |
+| **JavaScript — Event loop** | `client/src/components/EmergencyFormScreen.tsx` | `Promise.resolve().then(...)` microtask validation vs `setTimeout(..., 0)` macrotask view switch |
+| **JavaScript — Hoisting** | `server/src/services/authService.js` | Function declaration `async function _createSession(user)` hoisted to module scope |
+| **React component composition** | `client/src/components/AuthScreen.tsx` | `AuthScreenProps { onSuccess }` contract with modular sub-components and isolated state |
+| **State management with useState** | `client/src/components/AuthScreen.tsx` | Controlled input bindings (`identifier`, `password`, `isDonor`) and UI feedback (`loading`, `error`) |
+| **CRUD operations (Mongo)** | `server/src/services/authService.js` | Registration pipeline: `User.findOne`, `User.create`, and `DonorProfile.create` |
+| **Indexing for performance (Mongo)** | `server/src/models/User.js`, `EmergencyRequest.js` | 2dsphere spatial index on `location`, compound index `{ requestId: 1, timestamp: -1 }` |
+| **Aggregation pipelines (Mongo)** | `server/src/services/matchingService.js` | 5-stage aggregation: `$geoNear` (50km) $\rightarrow$ `$lookup` $\rightarrow$ `$unwind` $\rightarrow$ `$match` $\rightarrow$ `$sort` |
+| **Relational schema design (PK/FK)** | `server/prisma/schema.prisma` | 1:N FK relation between `AuditEvent` and `DonorReference` with `onDelete: SetNull` |
+| **SQL JOINs** | `server/src/services/auditService.js` | SQL `LEFT JOIN` via `prisma.auditEvent.findMany({ include: { donor: true } })` |
+| **Structured outputs** | `server/src/services/aiService.js` | `response_format: { type: 'json_object' }` with runtime schema whitelist verification |
+

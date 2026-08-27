@@ -329,3 +329,22 @@ stateDiagram-v2
     Confirmed --> [*]
     Expired --> [*]
 ```
+
+---
+
+## 6. Low-Level Concept Implementation & Code Reference
+
+| Concept | Exact Source File | Function / Schema / Code Line |
+|---|---|---|
+| **Middleware** | `server/src/middleware/auth.js` | `function authenticate(req, res, next)` (Lines 23–40) |
+| **Client-side routing** | `client/src/App.tsx` | `<Routes>` / `<Route path="/login"|"/intake"|"/matches"|"/dashboard">` (Lines 180–235) |
+| **JavaScript — Event loop** | `client/src/components/EmergencyFormScreen.tsx` | `Promise.resolve().then(...)` microtask vs `setTimeout(..., 0)` macrotask (Lines 114–126) |
+| **JavaScript — Hoisting** | `server/src/services/authService.js` | `async function _createSession(user)` hoisted function declaration (Line 181) |
+| **React component composition** | `client/src/components/AuthScreen.tsx` | `AuthScreenProps { onSuccess: (user: User) => void }` (Lines 19–30) |
+| **State management with useState** | `client/src/components/AuthScreen.tsx` | `const [isSignup, setIsSignup] = useState(false)` & `useState` hooks (Lines 31–43) |
+| **CRUD operations (Mongo)** | `server/src/services/authService.js` | `User.findOne`, `User.create`, `DonorProfile.create` inside `signup()` (Lines 58–89) |
+| **Relational schema design (PK/FK)** | `server/prisma/schema.prisma` | `AuditEvent` FK `donorId` -> `DonorReference.id` with `onDelete: SetNull` (Lines 17–40) |
+| **SQL JOINs** | `server/src/services/auditService.js` | `prisma.auditEvent.findMany({ include: { donor: true } })` (Lines 94–116) |
+| **Aggregation pipelines (Mongo)** | `server/src/services/matchingService.js` | 5-stage `$geoNear` aggregation pipeline in `findCandidates()` (Lines 47–88) |
+| **Structured outputs** | `server/src/services/aiService.js` | `response_format: { type: 'json_object' }` & `JSON.parse` whitelist check (Lines 54, 134–171) |
+
