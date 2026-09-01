@@ -40,8 +40,14 @@ export function getSocket(): Socket {
  */
 export function connectSocket() {
   const s = getSocket();
-  s.auth = { token: getAccessToken() ?? '' };
-  if (!s.connected) s.connect();
+  const token = getAccessToken() ?? '';
+  s.auth = { token };
+  if (!s.connected) {
+    s.connect();
+  } else {
+    // If already connected, reconnect to trigger server auth handshake with new token
+    s.disconnect().connect();
+  }
 }
 
 /**

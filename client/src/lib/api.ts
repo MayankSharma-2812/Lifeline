@@ -131,7 +131,8 @@ api.interceptors.response.use(
  * @returns The user profile and access token.
  */
 export async function loginApi(identifier: string, password: string): Promise<{ user: User; accessToken: string }> {
-  const res = await api.post('/auth/login', { identifier, email: identifier, password });
+  // BUG-9 fix: send clean identifier and password without duplicating email
+  const res = await api.post('/auth/login', { identifier, password });
   setAccessToken(res.data.accessToken);
   return res.data;
 }
@@ -164,6 +165,16 @@ export async function signupApi(data: {
 export async function refreshApi(): Promise<{ accessToken: string }> {
   const res = await api.post('/auth/refresh');
   setAccessToken(res.data.accessToken);
+  return res.data;
+}
+
+/**
+ * Retrieves the currently authenticated user's profile from /auth/me.
+ *
+ * @returns The user object.
+ */
+export async function getMeApi(): Promise<{ user: User }> {
+  const res = await api.get('/auth/me');
   return res.data;
 }
 

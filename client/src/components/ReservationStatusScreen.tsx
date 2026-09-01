@@ -13,6 +13,7 @@ export interface ReservationStatusScreenProps {
   requestId: string;
   donorProfileId: string;
   lockKey?: string;
+  expiresInSeconds?: number;
   onDone: () => void;
 }
 
@@ -24,16 +25,27 @@ export const ReservationStatusScreen: React.FC<ReservationStatusScreenProps> = (
   requestId,
   donorProfileId,
   lockKey,
+  expiresInSeconds = 900,
   onDone,
 }) => {
   // Subscribe to real-time status transitions for this request
   const statusEvent = useRequestStatus(requestId);
   const currentStatus = statusEvent?.status || 'reserved';
 
-  const [secondsLeft, setSecondsLeft] = useState(900); // Initialize with 15 minutes default
+  // BUG-4 fix: Initialize countdown timer from prop and update from socket events
+  const [secondsLeft, setSecondsLeft] = useState(expiresInSeconds);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync timer if socket event carries a new TTL or prop updates
+  useEffect(() => {
+    if (typeof statusEvent?.payload?.expiresInSeconds === 'number') {
+      setSecondsLeft(statusEvent.payload.expiresInSeconds);
+    } else if (expiresInSeconds) {
+      setSecondsLeft(expiresInSeconds);
+    }
+  }, [statusEvent, expiresInSeconds]);
 
   // Countdown timer effect
   useEffect(() => {

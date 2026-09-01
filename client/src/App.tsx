@@ -13,7 +13,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from '
 import { Toaster, toast } from 'sonner';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { Candidate, EmergencyRequest, User } from './types';
-import { refreshApi, logoutApi } from './lib/api';
+import { refreshApi, getMeApi, logoutApi } from './lib/api';
 import { useSocket } from './hooks/useSocket';
 import { useSessionRevoked } from './hooks/useSessionRevoked';
 import { Header } from './components/Header';
@@ -51,8 +51,8 @@ function AppContent() {
   // Concept: Client-side routing — programmatic navigation hook
   const navigate = useNavigate();
 
-  // Initialize and manage the global socket lifecycle
-  useSocket();
+  // Initialize and manage the global socket lifecycle (re-authenticates on user login)
+  useSocket(user);
 
   // Handle remote session revocation
   // When triggered by the server, this resets the user state and redirects to login.
@@ -77,16 +77,9 @@ function AppContent() {
       try {
         const res = await refreshApi();
         if (res.accessToken) {
-          // Decode the JWT payload to reconstruct the basic user object
-          const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
-          const loggedUser: User = {
-            _id: payload.userId,
-            name: payload.name || 'User',
-            email: payload.email || '',
-            phone: payload.phone || '',
-            role: payload.role || 'requester',
-          };
-          setUser(loggedUser);
+          // BUG-2 fix: JWT only contains userId — fetch real profile from /auth/me
+          const meRes = await getMeApi();
+          setUser(meRes.user);
         }
       } catch {
         // Suppress errors to allow normal unauthenticated flow
@@ -322,7 +315,8 @@ function ReservationRouteWrapper({
   if (!user) return <Navigate to="/login" replace />;
 
   const requestId = id || currentRequest?.requestId;
-  const donorProfileId = reservedDonor?.donorProfileId || currentRequest?.candidates[0]?.donorProfileId;
+  // BUG-7 fix: Require actual reserved donor lock state rather than falling back to unreserved candidate
+  const donorProfileId = reservedDonor?.donorProfileId;
 
   if (!requestId || !donorProfileId) {
     return <Navigate to="/intake" replace />;

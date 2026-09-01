@@ -2,7 +2,7 @@
  * @module useSessionRevoked.ts
  * @description Hook that listens for remote session revocation events to force a client-side logout.
  */
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { getSocket } from '../lib/socket';
 
 /**
@@ -15,18 +15,22 @@ import { getSocket } from '../lib/socket';
  * @param onRevoked - Callback function executed immediately when a revocation event is received.
  */
 export function useSessionRevoked(onRevoked: () => void) {
-  // Memoize the callback to prevent unnecessary effect re-runs, ignoring external dependency changes.
-  const stableCallback = useCallback(onRevoked, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // BUG-8 fix: Keep latest callback reference in a ref to avoid stale closures
+  const callbackRef = useRef(onRevoked);
+  callbackRef.current = onRevoked;
 
   useEffect(() => {
     const socket = getSocket();
+    const handler = () => {
+      callbackRef.current();
+    };
     
     // Bind the session termination event
-    socket.on('session-revoked', stableCallback);
+    socket.on('session-revoked', handler);
     
     return () => {
       // Clean up the listener when the component unmounts
-      socket.off('session-revoked', stableCallback);
+      socket.off('session-revoked', handler);
     };
-  }, [stableCallback]); // Depends on the stabilized reference
+  }, []);
 }

@@ -120,12 +120,13 @@ export const EmergencyFormScreen: React.FC<EmergencyFormScreenProps> = ({ onSucc
 
       // Event Loop Demonstration: Macrotask execution
       setTimeout(() => {
-        console.debug('[EventLoop:Macrotask] Macrotask timer fired: executing view transition');
-        onSuccess(res);
+        console.debug('[EventLoop:Macrotask] Macrotask timer fired in next tick');
       }, 0);
+
+      // BUG-5 fix: execute onSuccess directly to prevent UI flicker between loading and transition
+      onSuccess(res);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to submit emergency request.');
-    } finally {
       setLoading(false);
     }
   };

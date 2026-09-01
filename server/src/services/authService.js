@@ -55,11 +55,18 @@ function makeAccessToken(userId) {
  * @param {Object} [params.location] - Optional location {lng, lat}.
  * @returns {Promise<Object>} Contains accessToken, sessionId, refreshToken, and user details.
  */
-async function signup({ name, phone, email, password, role, location }) {
+async function signup({ name, phone, email, password, role, location, bloodGroup }) {
   const existing = await User.findOne({ email });
   if (existing) {
     const err = new Error('Email already registered');
     err.status = 409;
+    throw err;
+  }
+
+  // Validate bloodGroup before creating User to prevent orphaned records (BUG-1 + BUG-6 fix)
+  if (role === 'donor' && !bloodGroup) {
+    const err = new Error('bloodGroup is required when role is donor');
+    err.status = 400;
     throw err;
   }
 
@@ -77,11 +84,6 @@ async function signup({ name, phone, email, password, role, location }) {
 
   // Auto-create DonorProfile for donor registrations
   if (role === 'donor') {
-    if (!bloodGroup) {
-      const err = new Error('bloodGroup is required when role is donor');
-      err.status = 400;
-      throw err;
-    }
     await DonorProfile.create({ userId: user._id, bloodGroup });
   }
 
