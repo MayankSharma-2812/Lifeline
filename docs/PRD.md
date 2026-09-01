@@ -137,4 +137,9 @@ LifeLine enforces strict biological compatibility rules based on standard transf
 | **Relational schema design (PK/FK)** | `server/prisma/schema.prisma` | 1:N FK relation between `AuditEvent` and `DonorReference` with `onDelete: SetNull` |
 | **SQL JOINs** | `server/src/services/auditService.js` | SQL `LEFT JOIN` via `prisma.auditEvent.findMany({ include: { donor: true } })` |
 | **Structured outputs** | `server/src/services/aiService.js` | `response_format: { type: 'json_object' }` with runtime schema whitelist verification |
+| **Load Balancing & Horizontal Scaling** | `server/src/cluster.js` & `nginx/nginx.conf` | Multi-core Master-Worker cluster (`cluster.SCHED_RR`) + Nginx L7 upstream with `ip_hash` sticky sessions |
+| **Rate Limiting & Throttling** | `server/src/middleware/rateLimiter.js` | Sliding window rate limiter in Redis returning 429 Too Many Requests with Retry-After header |
+| **Circuit Breaker Pattern** | `server/src/utils/circuitBreaker.js` | 3-state resilience machine (CLOSED -> OPEN -> HALF_OPEN) wrapping 3rd-party OpenRouter API |
+| **Distributed Tracing** | `server/src/middleware/correlationId.js` | `X-Request-ID` middleware assigning cryptographic UUIDs across logs, audit logs, and HTTP headers |
+| **Health Probes & Graceful Shutdown** | `server/src/routes/health.js` & `index.js` | `/health/live` + `/health/ready` probes with `SIGTERM`/`SIGINT` connection draining |
 

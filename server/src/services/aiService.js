@@ -18,6 +18,8 @@
  * Implements exact API contract per LLD section 7.
  */
 
+const { CircuitBreaker } = require('../utils/circuitBreaker');
+
 const BLOOD_GROUPS     = ['AB+', 'AB-', 'O+', 'O-', 'A+', 'A-', 'B+', 'B-'];
 const URGENCY_VALUES   = ['critical', 'high', 'moderate'];
 
@@ -25,19 +27,17 @@ const URGENCY_VALUES   = ['critical', 'high', 'moderate'];
 const PARSE_TIMEOUT_MS = 8_000;  // 8 s — don't hold up the matching pipeline longer
 const EXPLAIN_TIMEOUT_MS = 10_000;
 
-// OpenRouter HTTP helper
+// Concept: Circuit Breaker Pattern — Trips to OPEN after 3 consecutive failures, fast-failing with 30s cooldown
+const openRouterBreaker = new CircuitBreaker(_rawOpenrouterRequest, {
+  failureThreshold: 3,
+  cooldownMs: 30_000,
+  name: 'OpenRouter-LLM',
+});
 
 /**
- * Single fetch-based OpenRouter wrapper per LLD section 7.
- * Demonstrates Concepts: LLM API integration, 3rd-party API integration, Token & cost monitoring
- *
- * @param {Array<Object>} messages - The chat context messages for the AI model.
- * @param {boolean} useJsonMode - Whether to enforce a JSON object response format.
- * @param {number} timeoutMs - Timeout for the AI request in milliseconds.
- * @returns {Promise<string|null>} The raw content string from the model, or null.
- * @throws {Error} On network issues, HTTP errors, or missing API key.
+ * Raw fetch-based OpenRouter call.
  */
-async function _openrouterRequest(messages, useJsonMode, timeoutMs) {
+async function _rawOpenrouterRequest(messages, useJsonMode, timeoutMs) {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error('OPENROUTER_API_KEY not configured');
 
@@ -77,6 +77,13 @@ async function _openrouterRequest(messages, useJsonMode, timeoutMs) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Executes OpenRouter requests through the Circuit Breaker state machine.
+ */
+async function _openrouterRequest(messages, useJsonMode, timeoutMs) {
+  return openRouterBreaker.execute(messages, useJsonMode, timeoutMs);
 }
 
 // Deterministic fallback
@@ -212,4 +219,4 @@ async function explainMatch(match, recipientBloodGroup) {
   return `${match.bloodGroup} donor ${km} km away — compatible with ${recipientBloodGroup}, reliability score ${match.reliabilityScore}/100.`;
 }
 
-module.exports = { parseEmergencyText, explainMatch, parseEmergencyTextFallback };
+module.exports = { parseEmergencyText, explainMatch, parseEmergencyTextFallback, openRouterBreaker };

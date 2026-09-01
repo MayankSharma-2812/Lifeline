@@ -162,4 +162,39 @@ The AI layer enhances user experience without becoming a single point of failure
 | **CRUD operations (Mongo)** | `server/src/services/authService.js` | MongoDB CRUD: `User.findOne`, `User.create`, `DonorProfile.create` |
 | **Relational schema design (PK/FK)** | `server/prisma/schema.prisma` | PostgreSQL 1:N foreign key between `AuditEvent` and `DonorReference` with `onDelete: SetNull` |
 | **SQL JOINs** | `server/src/services/auditService.js` | SQL `LEFT JOIN` via `prisma.auditEvent.findMany({ include: { donor: true } })` |
+| **Load Balancing & Horizontal Scaling** | `server/src/cluster.js` & `nginx/nginx.conf` | Multi-process Master-Worker Cluster (`cluster.SCHED_RR`) + Nginx L7 Upstream with `ip_hash` sticky sessions |
+| **Rate Limiting & Throttling** | `server/src/middleware/rateLimiter.js` | Sliding Window Rate Limiter using Redis counters, returning 429 Too Many Requests |
+| **Circuit Breaker Pattern** | `server/src/utils/circuitBreaker.js` | 3-State resilience machine (Closed, Open, Half-Open) wrapping OpenRouter API calls |
+| **Distributed Tracing** | `server/src/middleware/correlationId.js` | `X-Request-ID` cryptographic correlation tracing across Express pipeline and logs |
+| **Health Probes & Graceful Shutdown** | `server/src/routes/health.js` & `index.js` | Dual-probe `/health/live` & `/health/ready` + `SIGTERM`/`SIGINT` graceful connection drain |
+
+---
+
+## 7. High-Availability & Load Balancer Architecture
+
+```mermaid
+graph TD
+    Client["Client Traffic (React SPA / Mobile)"] --> Nginx["Nginx L7 Load Balancer (:80 / :443)"]
+    
+    subgraph "Reverse Proxy & Sticky Routing"
+        Nginx -- "ip_hash (WebSocket Affinity)" --> Master1["Node.js Cluster Master (Instance 1)"]
+        Nginx -- "Round Robin (HTTP Requests)" --> Master2["Node.js Cluster Master (Instance 2)"]
+    end
+
+    subgraph "Instance 1 (Multi-Core Cluster)"
+        Master1 --> W1["Worker 1 (PID 101)"]
+        Master1 --> W2["Worker 2 (PID 102)"]
+    end
+
+    subgraph "Instance 2 (Multi-Core Cluster)"
+        Master2 --> W3["Worker 3 (PID 201)"]
+        Master2 --> W4["Worker 4 (PID 202)"]
+    end
+
+    W1 & W2 & W3 & W4 --> Redis[("Upstash Redis (State & Lock Sync)")]
+    W1 & W2 & W3 & W4 --> Mongo[("MongoDB Atlas (Geo Spatial)")]
+    W1 & W2 & W3 & W4 --> Neon[("PostgreSQL Neon (Audit Logs)")]
+    W1 & W2 & W3 & W4 --> AI["Circuit Breaker -> OpenRouter LLM"]
+```
+
 

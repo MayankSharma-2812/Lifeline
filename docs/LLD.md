@@ -347,4 +347,9 @@ stateDiagram-v2
 | **SQL JOINs** | `server/src/services/auditService.js` | `prisma.auditEvent.findMany({ include: { donor: true } })` (Lines 94–116) |
 | **Aggregation pipelines (Mongo)** | `server/src/services/matchingService.js` | 5-stage `$geoNear` aggregation pipeline in `findCandidates()` (Lines 47–88) |
 | **Structured outputs** | `server/src/services/aiService.js` | `response_format: { type: 'json_object' }` & `JSON.parse` whitelist check (Lines 54, 134–171) |
+| **Load Balancing & Horizontal Scaling** | `server/src/cluster.js` & `nginx/nginx.conf` | `cluster.SCHED_RR` round-robin scheduling & `ip_hash` sticky session upstream |
+| **Rate Limiting & Throttling** | `server/src/middleware/rateLimiter.js` | `createRateLimiter({ windowMs, max, prefix })` with Upstash Redis counter |
+| **Circuit Breaker Pattern** | `server/src/utils/circuitBreaker.js` | `class CircuitBreaker` with `execute()`, `_onSuccess()`, `_onFailure()` state transitions |
+| **Distributed Tracing** | `server/src/middleware/correlationId.js` | `correlationIdMiddleware(req, res, next)` setting `X-Request-ID` and `req.id` |
+| **Health Probes & Graceful Shutdown** | `server/src/routes/health.js` & `index.js` | Dual endpoints `/health/live` & `/health/ready` + `gracefulShutdown(signal)` |
 
