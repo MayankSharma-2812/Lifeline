@@ -14,6 +14,18 @@ const { getRedis } = require('../config/redis');
 const router = Router();
 
 /**
+ * Root Health Endpoint: Returns 200 OK instantly for Uptime monitors (UptimeRobot).
+ */
+router.get('/', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'LifeLine backend is awake and running',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+  });
+});
+
+/**
  * Liveness Probe: Verifies that the Node.js event loop is running.
  * Used by container orchestrators to detect process deadlocks or fatal hangs.
  */
