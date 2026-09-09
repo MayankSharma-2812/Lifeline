@@ -52,6 +52,16 @@ app.use('/api/v1/donors',   generalLimiter, require('./routes/donors'));
 // Concept: Health Probes (Liveness & Readiness) for L4/L7 Load Balancers
 app.use('/api/v1/health', require('./routes/health'));
 app.use('/health', require('./routes/health'));
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    name: 'LifeLine API',
+    message: 'LifeLine backend is awake and running',
+    version: '1.0.0',
+    docs: '/api/v1',
+    health: '/health',
+  });
+});
 
 // ── Global error handler ────────────────────────────────────────
 // Concept: Server-side error handling — catch-all Express error handling middleware with correlation ID
